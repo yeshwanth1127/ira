@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ghost-bg: #0f172a;
-  --color-ghost-surface: #1e293b;
-  --color-ghost-border: #334155;
-  --color-ghost-muted: #94a3b8;
-  --color-ghost-text: #e2e8f0;
-  --color-ghost-accent: #3b82f6;
-  --color-ghost-error: #f87171;
-  --color-ghost-brand: #ff9a8b;
-  --color-ghost-icon: #8a2be2;
-  --font-sans: "Space Grotesk", system-ui, sans-serif;
-  --font-ghost-brand: "Bebas Neue", sans-serif;
+  --color-ira-bg: #000000;
+  --color-ira-surface: #0a0a0a;
+  --color-ira-border: #2e2e2e;
+  --color-ira-muted: #8e8e93;
+  --color-ira-text: #e8e8ed;
+  --color-ira-accent: #32d74b;
+  --color-ira-error: #ff453a;
+  --color-ira-brand: #32d74b;
+  --color-ira-warn: #ff9f0a;
+  --color-ira-icon: #32d74b;
+  --font-sans: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-ira-brand: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
 @layer base {
@@ -22,6 +23,6 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    @apply m-0 min-h-screen bg-black text-white font-sans antialiased overflow-x-hidden;
+    @apply m-0 min-h-screen bg-black text-[#e8e8ed] font-sans antialiased overflow-x-hidden;
   }
 }

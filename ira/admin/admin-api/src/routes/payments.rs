@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 use sqlx::Row;
 use uuid::Uuid;
 
+use crate::ira_backend::{issue_license, IssueLicenseBody};
 use crate::state::AppState;
 
 const RAZORPAY_API: &str = "https://api.razorpay.com/v1";
@@ -73,12 +74,6 @@ fn get_token_limit(plan: &str) -> i64 {
 
 fn generate_placeholder_password_hash() -> Result<String, String> {
     bcrypt::hash(Uuid::new_v4().to_string(), bcrypt::DEFAULT_COST).map_err(|e| e.to_string())
-}
-
-fn hash_license_key(license_key: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(license_key.as_bytes());
-    hex::encode(hasher.finalize())
 }
 
 pub async fn create_subscription(
@@ -323,6 +318,8 @@ async fn sync_subscription_to_db(state: &AppState, subscription_id: &str) -> Res
     .await
     .map_err(|e| e.to_string())?;
 
+    let need_ira_license = updated == 0;
+
     if updated > 0 {
         sqlx::query(
             "UPDATE licenses SET tier = $1, plan_id = $2, is_trial = false, trial_ends_at = NULL, updated_at = NOW() WHERE user_id = $3 AND COALESCE(is_owner, false) = false",
@@ -333,28 +330,32 @@ async fn sync_subscription_to_db(state: &AppState, subscription_id: &str) -> Res
         .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
-    } else {
-        let license_key = crate::routes::auth::generate_license_key();
-        let license_key_hash = hash_license_key(&license_key);
-        let license_id = Uuid::new_v4();
-        let now = chrono::Utc::now();
-        sqlx::query(
-            "INSERT INTO licenses (id, license_key, license_key_hash, user_id, plan_id, status, tier, max_instances, is_trial, issued_at, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, 'active', $6, 1, false, $7, $7, $7)",
+    }
+
+    tx.commit().await.map_err(|e| e.to_string())?;
+
+    if need_ira_license {
+        let http = reqwest::Client::new();
+        issue_license(
+            &http,
+            &state.config,
+            IssueLicenseBody {
+                user_id: user_id.to_string(),
+                plan_id: plan_id.to_string(),
+                subscription_id: Some(subscription_id.to_string()),
+                is_trial: false,
+                trial_ends_at: None,
+                tier: plan.to_string(),
+                max_instances: 1,
+                max_activations: Some(1),
+                expires_at: None,
+                notes: Some("razorpay subscription sync".to_string()),
+            },
         )
-        .bind(&license_id)
-        .bind(&license_key)
-        .bind(&license_key_hash)
-        .bind(&user_id)
-        .bind(&plan_id)
-        .bind(plan)
-        .bind(now)
-        .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
     }
 
-    tx.commit().await.map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -433,81 +434,11 @@ pub async fn verify_payment(
         .await
         .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let (user_id, license_key) = if !user_id_str.is_empty() {
-        let uid = Uuid::parse_str(user_id_str).map_err(|_| (axum::http::StatusCode::BAD_REQUEST, "Invalid user_id".to_string()))?;
-        let is_owner: bool = sqlx::query_scalar("SELECT COALESCE(is_owner, false) FROM users WHERE id = $1")
-            .bind(&uid)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-            .unwrap_or(false);
-        if is_owner {
-            tx.rollback().await.ok();
-            return Err((axum::http::StatusCode::BAD_REQUEST, "Cannot process payment for owner account".to_string()));
-        }
-        let lk: Option<String> = sqlx::query_scalar("SELECT license_key FROM licenses WHERE user_id = $1 AND COALESCE(is_owner, false) = false LIMIT 1")
-            .bind(&uid)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-        sqlx::query(
-            "UPDATE users SET plan = $1, monthly_token_limit = $2, razorpay_subscription_id = $3, updated_at = NOW() WHERE id = $4 AND COALESCE(is_owner, false) = false",
-        )
-        .bind(plan)
-        .bind(token_limit)
-        .bind(&req.razorpay_subscription_id)
-        .bind(&uid)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-        sqlx::query(
-            "UPDATE licenses SET tier = $1, plan_id = $2, is_trial = false, trial_ends_at = NULL, updated_at = NOW() WHERE user_id = $3 AND COALESCE(is_owner, false) = false",
-        )
-        .bind(plan)
-        .bind(&plan_id)
-        .bind(&uid)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-        let lk = if let Some(k) = lk {
-            k
-        } else {
-            let new_key = crate::routes::auth::generate_license_key();
-            let new_key_hash = hash_license_key(&new_key);
-            let license_id = Uuid::new_v4();
-            let now = chrono::Utc::now();
-            sqlx::query(
-                "INSERT INTO licenses (id, license_key, license_key_hash, user_id, plan_id, status, tier, max_instances, is_trial, issued_at, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, 'active', $6, 1, false, $7, $7, $7)",
-            )
-            .bind(&license_id)
-            .bind(&new_key)
-            .bind(&new_key_hash)
-            .bind(&uid)
-            .bind(&plan_id)
-            .bind(plan)
-            .bind(now)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-            new_key
-        };
-
-        (uid, lk)
-    } else if !email.is_empty() {
-        let existing = sqlx::query(
-            "SELECT u.id FROM users u WHERE u.email = $1",
-        )
-        .bind(&email)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-        if let Some(row) = existing {
-            let uid: Uuid = row.get("id");
+    type DeferredIssue = (Uuid, String, String);
+    let (user_id, existing_key, deferred_issue): (Uuid, Option<String>, Option<DeferredIssue>) =
+        if !user_id_str.is_empty() {
+            let uid = Uuid::parse_str(user_id_str)
+                .map_err(|_| (axum::http::StatusCode::BAD_REQUEST, "Invalid user_id".to_string()))?;
             let is_owner: bool = sqlx::query_scalar("SELECT COALESCE(is_owner, false) FROM users WHERE id = $1")
                 .bind(&uid)
                 .fetch_optional(&mut *tx)
@@ -518,11 +449,14 @@ pub async fn verify_payment(
                 tx.rollback().await.ok();
                 return Err((axum::http::StatusCode::BAD_REQUEST, "Cannot process payment for owner account".to_string()));
             }
-            let lk: Option<String> = sqlx::query_scalar("SELECT license_key FROM licenses WHERE user_id = $1 AND COALESCE(is_owner, false) = false LIMIT 1")
-                .bind(&uid)
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            let lk: Option<String> = sqlx::query_scalar(
+                "SELECT license_key FROM licenses WHERE user_id = $1 AND COALESCE(is_owner, false) = false LIMIT 1",
+            )
+            .bind(&uid)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
             sqlx::query(
                 "UPDATE users SET plan = $1, monthly_token_limit = $2, razorpay_subscription_id = $3, updated_at = NOW() WHERE id = $4 AND COALESCE(is_owner, false) = false",
             )
@@ -544,81 +478,153 @@ pub async fn verify_payment(
             .await
             .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-            let license_key = if let Some(k) = lk {
-                k
+            if let Some(k) = lk {
+                (uid, Some(k), None)
             } else {
-                let new_key = crate::routes::auth::generate_license_key();
-                let new_key_hash = hash_license_key(&new_key);
-                let license_id = Uuid::new_v4();
-                let now = chrono::Utc::now();
-                sqlx::query(
-                    "INSERT INTO licenses (id, license_key, license_key_hash, user_id, plan_id, status, tier, max_instances, is_trial, issued_at, created_at, updated_at)
-                     VALUES ($1, $2, $3, $4, $5, 'active', $6, 1, false, $7, $7, $7)",
+                (
+                    uid,
+                    None,
+                    Some((
+                        plan_id,
+                        plan.to_string(),
+                        req.razorpay_subscription_id.clone(),
+                    )),
                 )
-                .bind(&license_id)
-                .bind(&new_key)
-                .bind(&new_key_hash)
+            }
+        } else if !email.is_empty() {
+            let existing = sqlx::query("SELECT u.id FROM users u WHERE u.email = $1")
+                .bind(&email)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+            if let Some(row) = existing {
+                let uid: Uuid = row.get("id");
+                let is_owner: bool = sqlx::query_scalar("SELECT COALESCE(is_owner, false) FROM users WHERE id = $1")
+                    .bind(&uid)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+                    .unwrap_or(false);
+                if is_owner {
+                    tx.rollback().await.ok();
+                    return Err((axum::http::StatusCode::BAD_REQUEST, "Cannot process payment for owner account".to_string()));
+                }
+                let lk: Option<String> = sqlx::query_scalar(
+                    "SELECT license_key FROM licenses WHERE user_id = $1 AND COALESCE(is_owner, false) = false LIMIT 1",
+                )
                 .bind(&uid)
-                .bind(&plan_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+                sqlx::query(
+                    "UPDATE users SET plan = $1, monthly_token_limit = $2, razorpay_subscription_id = $3, updated_at = NOW() WHERE id = $4 AND COALESCE(is_owner, false) = false",
+                )
                 .bind(plan)
+                .bind(token_limit)
+                .bind(&req.razorpay_subscription_id)
+                .bind(&uid)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+                sqlx::query(
+                    "UPDATE licenses SET tier = $1, plan_id = $2, is_trial = false, trial_ends_at = NULL, updated_at = NOW() WHERE user_id = $3 AND COALESCE(is_owner, false) = false",
+                )
+                .bind(plan)
+                .bind(&plan_id)
+                .bind(&uid)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+                if let Some(k) = lk {
+                    (uid, Some(k), None)
+                } else {
+                    (
+                        uid,
+                        None,
+                        Some((
+                            plan_id,
+                            plan.to_string(),
+                            req.razorpay_subscription_id.clone(),
+                        )),
+                    )
+                }
+            } else {
+                let new_user_id = Uuid::new_v4();
+                let now = chrono::Utc::now();
+                let password_hash = generate_placeholder_password_hash()
+                    .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+                sqlx::query(
+                    "INSERT INTO users (id, email, password_hash, plan, monthly_token_limit, tokens_used_this_month, monthly_reset_at, razorpay_subscription_id, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, $5, 0, $6, $7, $8, $8)",
+                )
+                .bind(&new_user_id)
+                .bind(&email)
+                .bind(&password_hash)
+                .bind(plan)
+                .bind(token_limit)
+                .bind(now + chrono::Duration::days(30))
+                .bind(&req.razorpay_subscription_id)
                 .bind(now)
                 .execute(&mut *tx)
                 .await
                 .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-                new_key
-            };
-            (uid, license_key)
+
+                (
+                    new_user_id,
+                    None,
+                    Some((
+                        plan_id,
+                        plan.to_string(),
+                        req.razorpay_subscription_id.clone(),
+                    )),
+                )
+            }
         } else {
-            let user_id = Uuid::new_v4();
-            let license_key = crate::routes::auth::generate_license_key();
-            let license_id = Uuid::new_v4();
-            let now = chrono::Utc::now();
-            let password_hash = generate_placeholder_password_hash()
-                .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            tx.rollback().await.ok();
+            return Err((axum::http::StatusCode::BAD_REQUEST, "No email in subscription notes".to_string()));
+        };
 
-            sqlx::query(
-                "INSERT INTO users (id, email, password_hash, plan, monthly_token_limit, tokens_used_this_month, monthly_reset_at, razorpay_subscription_id, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, 0, $6, $7, $8, $8)",
-            )
-            .bind(&user_id)
-            .bind(&email)
-            .bind(&password_hash)
-            .bind(plan)
-            .bind(token_limit)
-            .bind(now + chrono::Duration::days(30))
-            .bind(&req.razorpay_subscription_id)
-            .bind(now)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    tx.commit().await.map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-            sqlx::query(
-                "INSERT INTO licenses (id, license_key, license_key_hash, user_id, plan_id, status, tier, max_instances, is_trial, issued_at, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, 'active', $6, 1, false, $7, $7, $7)",
-            )
-            .bind(&license_id)
-            .bind(&license_key)
-            .bind(hash_license_key(&license_key))
-            .bind(&user_id)
-            .bind(&plan_id)
-            .bind(plan)
-            .bind(now)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-            (user_id, license_key)
-        }
+    let http = reqwest::Client::new();
+    let license_key = if let Some((pid, tier, sub_id)) = deferred_issue {
+        issue_license(
+            &http,
+            &state.config,
+            IssueLicenseBody {
+                user_id: user_id.to_string(),
+                plan_id: pid.to_string(),
+                subscription_id: Some(sub_id),
+                is_trial: false,
+                trial_ends_at: None,
+                tier,
+                max_instances: 1,
+                max_activations: Some(1),
+                expires_at: None,
+                notes: Some("razorpay verify_payment".to_string()),
+            },
+        )
+        .await
+        .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e))?
+        .license_key
     } else {
-        tx.rollback().await.ok();
-        return Err((axum::http::StatusCode::BAD_REQUEST, "No email in subscription notes".to_string()));
+        existing_key.ok_or((
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "Expected existing license key".to_string(),
+        ))?
     };
 
-    let license_id: Uuid = sqlx::query_scalar("SELECT id FROM licenses WHERE user_id = $1 LIMIT 1")
-        .bind(&user_id)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let license_id: Uuid = sqlx::query_scalar(
+        "SELECT id FROM licenses WHERE user_id = $1 AND COALESCE(is_owner, false) = false LIMIT 1",
+    )
+    .bind(&user_id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     sqlx::query(
         "INSERT INTO transactions (license_id, amount, currency, status, payment_provider, provider_transaction_id, created_at)
@@ -626,11 +632,9 @@ pub async fn verify_payment(
     )
     .bind(&license_id)
     .bind(&req.razorpay_payment_id)
-    .execute(&mut *tx)
+    .execute(&state.pool)
     .await
     .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    tx.commit().await.map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     Ok(Json(VerifyPaymentResponse {
         success: true,

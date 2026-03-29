@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { CHILD_PANEL_PADDING } from "./childPanelConstants";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { theme } from "./theme";
 
 type UserProfile = {
   id: string;
@@ -357,36 +359,96 @@ export default function SettingsWindowUI() {
   };
 
   return (
-    <div style={{ width: "100%", height: "100%", background: "transparent", padding: 12, boxSizing: "border-box" }}>
-      <div style={{ background: "#E7B3B3", borderRadius: 0, padding: 16, height: "100%", minHeight: 0, overflowY: "auto", boxSizing: "border-box" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#2A2121" }}>Settings</div>
-          <button
-            onClick={() => void getCurrentWindow().hide()}
-            style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 16 }}
-            aria-label="Close settings"
-          >
-            ✕
-          </button>
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        margin: 0,
+        padding: CHILD_PANEL_PADDING,
+        boxSizing: "border-box",
+        background: theme.windowBg,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          flexShrink: 0,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          margin: 0,
+          padding: 0,
+          minHeight: 40,
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 700, color: theme.green, margin: 0, padding: 0, fontFamily: theme.fontMono, letterSpacing: "0.08em" }}>
+          SETTINGS
         </div>
+        <button
+          onClick={() => void getCurrentWindow().hide()}
+          style={{
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            fontSize: 16,
+            lineHeight: 1,
+            margin: 0,
+            padding: 0,
+            minWidth: 36,
+            minHeight: 36,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: theme.textMuted,
+          }}
+          aria-label="Close settings"
+        >
+          ✕
+        </button>
+      </div>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          margin: 0,
+          padding: 0,
+          boxSizing: "border-box",
+          fontFamily: theme.fontMono,
+          color: theme.text,
+        }}
+      >
 
         {sessionExpired && (
           <div
             style={{
               marginBottom: 12,
               padding: 12,
-              background: "rgba(255,255,255,0.5)",
+              background: theme.bgPanel,
               borderRadius: 8,
-              border: "1px solid #8B5D5D",
+              border: `1px solid ${theme.orange}`,
             }}
           >
-            <div style={{ fontSize: 13, color: "#4B3535", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: theme.orange, marginBottom: 8, fontFamily: theme.fontMono }}>
               Your session has expired. Sign in again with your email and a one-time code.
             </div>
             <button
               type="button"
               onClick={signInAgain}
-              style={{ padding: "8px 14px", fontWeight: 600, cursor: "pointer" }}
+              style={{
+                padding: "8px 14px",
+                fontWeight: 600,
+                cursor: "pointer",
+                background: theme.bgInput,
+                border: `1px solid ${theme.green}`,
+                color: theme.green,
+                borderRadius: 6,
+                fontFamily: theme.fontMono,
+                fontSize: 12,
+              }}
             >
               Sign in again
             </button>
@@ -396,14 +458,37 @@ export default function SettingsWindowUI() {
         {!hasToken && !profile && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <button type="button" style={{ padding: "6px 10px" }}>
+              <button
+                type="button"
+                style={{
+                  padding: "6px 12px",
+                  background: theme.bgInput,
+                  border: `1px solid ${theme.border}`,
+                  color: theme.text,
+                  borderRadius: 6,
+                  fontFamily: theme.fontMono,
+                  fontSize: 11,
+                }}
+              >
                 Login
               </button>
-              <button type="button" onClick={() => void onRegisterClick()} style={{ padding: "6px 10px" }}>
+              <button
+                type="button"
+                onClick={() => void onRegisterClick()}
+                style={{
+                  padding: "6px 12px",
+                  background: theme.bgInput,
+                  border: `1px solid ${theme.border}`,
+                  color: theme.textMuted,
+                  borderRadius: 6,
+                  fontFamily: theme.fontMono,
+                  fontSize: 11,
+                }}
+              >
                 Register
               </button>
             </div>
-            <div style={{ fontSize: 12, color: "#4B3535", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8, fontFamily: theme.fontMono }}>
               Sign in with email and a one-time code (same as the web signup).
             </div>
             <input
@@ -413,14 +498,37 @@ export default function SettingsWindowUI() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={otpSent}
-              style={{ width: "100%", marginBottom: 8, padding: 8, borderRadius: 8, border: "1px solid #8B5D5D" }}
+              style={{
+                width: "100%",
+                marginBottom: 8,
+                padding: 8,
+                borderRadius: 6,
+                border: `1px solid ${theme.border}`,
+                background: theme.bgInput,
+                color: theme.text,
+                fontFamily: theme.fontMono,
+                fontSize: 13,
+                boxSizing: "border-box",
+              }}
             />
             {!otpSent ? (
               <button
                 type="button"
                 onClick={() => void sendLoginOtp()}
                 disabled={busy || !email.trim()}
-                style={{ padding: "8px 12px", width: "100%" }}
+                style={{
+                  padding: "10px 12px",
+                  width: "100%",
+                  background: busy || !email.trim() ? theme.bgPanel : theme.bgInput,
+                  border: `1px solid ${theme.green}`,
+                  color: theme.green,
+                  borderRadius: 6,
+                  fontFamily: theme.fontMono,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: busy || !email.trim() ? "not-allowed" : "pointer",
+                  opacity: busy || !email.trim() ? 0.5 : 1,
+                }}
               >
                 {busy ? "Sending..." : "Send verification code"}
               </button>
@@ -436,10 +544,15 @@ export default function SettingsWindowUI() {
                     width: "100%",
                     marginBottom: 8,
                     padding: 8,
-                    borderRadius: 8,
-                    border: "1px solid #8B5D5D",
+                    borderRadius: 6,
+                    border: `1px solid ${theme.border}`,
+                    background: theme.bgInput,
+                    color: theme.text,
                     letterSpacing: "0.35em",
                     textAlign: "center",
+                    fontFamily: theme.fontMono,
+                    fontSize: 14,
+                    boxSizing: "border-box",
                   }}
                 />
                 <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -447,7 +560,18 @@ export default function SettingsWindowUI() {
                     type="button"
                     onClick={() => void verifyOtpAndSignIn()}
                     disabled={busy || otp.length !== 6}
-                    style={{ flex: 1, padding: "8px 12px" }}
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      background: theme.bgInput,
+                      border: `1px solid ${theme.green}`,
+                      color: theme.green,
+                      borderRadius: 6,
+                      fontFamily: theme.fontMono,
+                      fontSize: 12,
+                      cursor: busy || otp.length !== 6 ? "not-allowed" : "pointer",
+                      opacity: busy || otp.length !== 6 ? 0.5 : 1,
+                    }}
                   >
                     {busy ? "Signing in..." : "Sign in"}
                   </button>
@@ -458,7 +582,15 @@ export default function SettingsWindowUI() {
                       setOtp("");
                     }}
                     disabled={busy}
-                    style={{ padding: "8px 12px" }}
+                    style={{
+                      padding: "8px 12px",
+                      background: theme.bgInput,
+                      border: `1px solid ${theme.border}`,
+                      color: theme.textMuted,
+                      borderRadius: 6,
+                      fontFamily: theme.fontMono,
+                      fontSize: 12,
+                    }}
                   >
                     Back
                   </button>
@@ -473,8 +605,10 @@ export default function SettingsWindowUI() {
                     padding: 6,
                     border: "none",
                     background: "transparent",
-                    color: "#6A3A3A",
+                    color: theme.orange,
                     cursor: resendCooldown > 0 || busy ? "not-allowed" : "pointer",
+                    fontFamily: theme.fontMono,
+                    fontSize: 11,
                   }}
                 >
                   {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : "Resend code"}
@@ -506,9 +640,20 @@ export default function SettingsWindowUI() {
             </Section>
 
             <Section title="Licenses">
-              {licenses.length === 0 && <div style={{ color: "#4B3535" }}>No licenses found.</div>}
+              {licenses.length === 0 && (
+                <div style={{ color: theme.textDim, fontFamily: theme.fontMono, fontSize: 12 }}>No licenses found.</div>
+              )}
               {licenses.map((l) => (
-                <div key={l.id} style={{ border: "1px solid #B18080", borderRadius: 8, padding: 8, marginBottom: 6 }}>
+                <div
+                  key={l.id}
+                  style={{
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: 8,
+                    padding: 8,
+                    marginBottom: 6,
+                    background: theme.bgPanel,
+                  }}
+                >
                   <KV k="License ID" v={l.id} />
                   {l.license_key ? <KV k="License key" v={l.license_key} /> : null}
                   <KV k="Status" v={l.status} />
@@ -523,28 +668,81 @@ export default function SettingsWindowUI() {
                 placeholder="Enter license key (GHOST-... or IRA-...)"
                 value={licenseKeyInput}
                 onChange={(e) => setLicenseKeyInput(e.target.value)}
-                style={{ width: "100%", marginBottom: 8, padding: 8, borderRadius: 8, border: "1px solid #8B5D5D" }}
+                style={{
+                  width: "100%",
+                  marginBottom: 8,
+                  padding: 8,
+                  borderRadius: 6,
+                  border: `1px solid ${theme.border}`,
+                  background: theme.bgInput,
+                  color: theme.text,
+                  fontFamily: theme.fontMono,
+                  fontSize: 12,
+                  boxSizing: "border-box",
+                }}
               />
-              <button onClick={activateLicense} disabled={busy || !licenseKeyInput.trim()} style={{ padding: "8px 12px", marginRight: 8 }}>
+              <button
+                onClick={activateLicense}
+                disabled={busy || !licenseKeyInput.trim()}
+                style={{
+                  padding: "8px 12px",
+                  marginRight: 8,
+                  background: theme.bgInput,
+                  border: `1px solid ${theme.green}`,
+                  color: theme.green,
+                  borderRadius: 6,
+                  fontFamily: theme.fontMono,
+                  fontSize: 12,
+                  cursor: busy || !licenseKeyInput.trim() ? "not-allowed" : "pointer",
+                }}
+              >
                 {busy ? "Activating..." : "Activate key"}
               </button>
               <KV k="Activation ID" v={localStorage.getItem(STORAGE.activationId) || "-"} />
               <KV k="Device ID" v={localStorage.getItem(STORAGE.deviceId) || "-"} />
             </Section>
 
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={copyDiagnostics} style={{ padding: "8px 12px" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                onClick={copyDiagnostics}
+                style={{
+                  padding: "8px 12px",
+                  background: theme.bgInput,
+                  border: `1px solid ${theme.border}`,
+                  color: theme.text,
+                  borderRadius: 6,
+                  fontFamily: theme.fontMono,
+                  fontSize: 11,
+                  cursor: "pointer",
+                }}
+              >
                 Copy support diagnostics
               </button>
-              <button onClick={onLogout} style={{ padding: "8px 12px" }}>
+              <button
+                onClick={onLogout}
+                style={{
+                  padding: "8px 12px",
+                  background: theme.bgInput,
+                  border: `1px solid ${theme.red}`,
+                  color: theme.red,
+                  borderRadius: 6,
+                  fontFamily: theme.fontMono,
+                  fontSize: 11,
+                  cursor: "pointer",
+                }}
+              >
                 Logout
               </button>
             </div>
           </div>
         )}
 
-        {error && <div style={{ marginTop: 10, color: "#721c24" }}>{error}</div>}
-        {okMsg && <div style={{ marginTop: 10, color: "#155724" }}>{okMsg}</div>}
+        {error && (
+          <div style={{ marginTop: 10, color: theme.red, fontFamily: theme.fontMono, fontSize: 12 }}>{error}</div>
+        )}
+        {okMsg && (
+          <div style={{ marginTop: 10, color: theme.green, fontFamily: theme.fontMono, fontSize: 12 }}>{okMsg}</div>
+        )}
       </div>
     </div>
   );
@@ -553,8 +751,29 @@ export default function SettingsWindowUI() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div style={{ fontWeight: 700, marginBottom: 6, color: "#3A2F2F" }}>{title}</div>
-      <div style={{ background: "rgba(255,255,255,0.35)", borderRadius: 8, padding: 10 }}>{children}</div>
+      <div
+        style={{
+          fontWeight: 700,
+          marginBottom: 6,
+          color: theme.orange,
+          fontFamily: theme.fontMono,
+          fontSize: 10,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          background: theme.bgPanel,
+          border: `1px solid ${theme.border}`,
+          borderRadius: 8,
+          padding: 10,
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -562,8 +781,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function KV({ k, v }: { k: string; v: string }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: 8, marginBottom: 4 }}>
-      <div style={{ color: "#4B3535", fontWeight: 600 }}>{k}</div>
-      <div style={{ color: "#2F2020", wordBreak: "break-word" }}>{v}</div>
+      <div style={{ color: theme.textMuted, fontWeight: 600, fontFamily: theme.fontMono, fontSize: 11 }}>{k}</div>
+      <div style={{ color: theme.text, wordBreak: "break-word", fontFamily: theme.fontMono, fontSize: 12 }}>{v}</div>
     </div>
   );
 }

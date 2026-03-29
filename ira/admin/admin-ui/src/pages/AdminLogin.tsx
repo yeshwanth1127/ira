@@ -33,35 +33,35 @@ export default function AdminLogin() {
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-lg border border-white/20 bg-white/5 p-6 sm:p-8 mx-4"
-        style={{ fontFamily: "Space Grotesk, sans-serif" }}
+        style={{ fontFamily: "JetBrains Mono, monospace" }}
       >
-        <h1 className="mb-2 text-xl sm:text-2xl font-bold" style={{ fontFamily: "Bebas Neue, sans-serif", color: "#ff9a8b" }}>
-          Ghost Admin
+        <h1 className="mb-2 text-xl sm:text-2xl font-bold" style={{ fontFamily: "JetBrains Mono, monospace", color: "#32d74b" }}>
+          Ira Admin
         </h1>
         <p className="mb-6 text-sm text-white/70">Sign in to the admin dashboard</p>
         {error && (
           <div className="mb-4 text-sm text-red-400">{error}</div>
         )}
         <div className="mb-4">
-          <label className="mb-2 block text-sm" style={{ color: "#c96a5b" }}>Username</label>
+          <label className="mb-2 block text-sm" style={{ color: "#ff9f0a" }}>Username</label>
           <input
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
             autoComplete="username"
-            className="w-full rounded-lg border border-white/30 bg-black px-3 py-2 text-white placeholder-white/50 focus:border-[#ff9a8b] focus:outline-none focus:ring-1 focus:ring-[#ff9a8b]"
+            className="w-full rounded-lg border border-white/30 bg-black px-3 py-2 text-white placeholder-white/50 focus:border-[#32d74b] focus:outline-none focus:ring-1 focus:ring-[#32d74b]"
           />
         </div>
         <div className="mb-6">
-          <label className="mb-2 block text-sm" style={{ color: "#c96a5b" }}>Password</label>
+          <label className="mb-2 block text-sm" style={{ color: "#ff9f0a" }}>Password</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
-            className="w-full rounded-lg border border-white/30 bg-black px-3 py-2 text-white placeholder-white/50 focus:border-[#ff9a8b] focus:outline-none focus:ring-1 focus:ring-[#ff9a8b]"
+            className="w-full rounded-lg border border-white/30 bg-black px-3 py-2 text-white placeholder-white/50 focus:border-[#32d74b] focus:outline-none focus:ring-1 focus:ring-[#32d74b]"
           />
         </div>
         <button
@@ -72,7 +72,7 @@ export default function AdminLogin() {
           {loading ? "Signing in..." : "Sign in"}
         </button>
         <p className="mt-4 text-center text-sm text-white/80">
-          <Link to="/login" className="text-[#ff9a8b] hover:underline">
+          <Link to="/login" className="text-[#32d74b] hover:underline">
             ← Back to customer login
           </Link>
         </p>

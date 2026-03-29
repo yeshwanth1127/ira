@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 
 const btnClass = "w-full py-4 px-3 sm:py-5 sm:px-4 lg:py-6 lg:px-8 rounded-lg border border-white bg-black text-white text-center font-medium transition-colors hover:bg-white/5 text-xs sm:text-sm lg:text-base";
-const btnStyle = { fontFamily: "Space Grotesk, sans-serif" };
+const btnStyle = { fontFamily: "JetBrains Mono, monospace" };
 
 export default function SideButtons() {
   const location = useLocation();

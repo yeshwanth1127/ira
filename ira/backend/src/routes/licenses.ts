@@ -4,10 +4,12 @@ import { config } from "../config.js";
 import { adminStyleLicenseKeyHashHex, generateLicenseKey, licenseKeyHash } from "../licensing/license.js";
 import { requireUser, type AuthedRequest } from "../auth/middleware.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { internalApiKeyMatches, logInternalApiKeyForbidden } from "../utils/internalApiKeyAuth.js";
 import {
   countActivations,
   createActivation,
   createLicense,
+  createLicenseWeb,
   getActivationByLicenseAndDevice,
   getLicenseByEitherHash,
   listLicensesByUser,
@@ -15,6 +17,9 @@ import {
 } from "../repositories/licenseRepo.js";
 
 const router = Router();
+
+/** Chrono `DateTime::to_rfc3339()` emits `+00:00` for UTC; Zod's default `.datetime()` only allows `Z`. */
+const isoDateTime = z.string().datetime({ offset: true });
 
 const ActivateSchema = z.object({
   license_key: z.string().min(10),
@@ -58,15 +63,15 @@ const GenerateSchema = z.object({
   user_id: z.string().uuid().optional(),
   plan_id: z.string().uuid(),
   subscription_id: z.string().uuid().optional(),
-  expires_at: z.string().datetime().optional(),
+  expires_at: isoDateTime.optional(),
   max_activations: z.number().int().min(1).max(10).optional(),
   notes: z.string().max(500).optional(),
 });
 
 router.post("/generate", asyncHandler(async (req, res) => {
   // internal only (webhook/admin service)
-  const apiKey = req.headers["x-internal-api-key"];
-  if (!config.internalApiKey || apiKey !== config.internalApiKey) {
+  if (!internalApiKeyMatches(req, config.internalApiKey)) {
+    logInternalApiKeyForbidden("POST /licenses/generate", req, config.internalApiKey);
     return res.status(403).json({ error: "Forbidden" });
   }
 
@@ -88,9 +93,58 @@ router.post("/generate", asyncHandler(async (req, res) => {
     expiresAt: expires_at ? new Date(expires_at) : null,
     maxActivations: maxActs,
     notes: notes ?? null,
+    licenseKeyPlaintext: plaintext,
   });
 
   return res.json({ license_id: licRes.rows[0]?.id, license_key: plaintext });
+}));
+
+const InternalIssueSchema = z.object({
+  user_id: z.string().uuid(),
+  plan_id: z.string().uuid(),
+  subscription_id: z.string().uuid().optional().nullable(),
+  is_trial: z.boolean().optional().default(false),
+  trial_ends_at: isoDateTime.optional().nullable(),
+  tier: z.string().max(50).optional().default("free"),
+  max_instances: z.number().int().min(1).max(10).optional(),
+  max_activations: z.number().int().min(1).max(10).optional(),
+  expires_at: isoDateTime.optional().nullable(),
+  notes: z.string().max(500).optional().nullable(),
+});
+
+/** Called only by trusted services (admin-api). Generates the key and DB row; web API never mints keys. */
+router.post("/internal/issue", asyncHandler(async (req, res) => {
+  if (!internalApiKeyMatches(req, config.internalApiKey)) {
+    logInternalApiKeyForbidden("POST /licenses/internal/issue", req, config.internalApiKey);
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const parsed = InternalIssueSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+  const d = parsed.data;
+  const plaintext = generateLicenseKey();
+  const hash = licenseKeyHash(plaintext);
+  const maxActs = d.max_activations ?? d.max_instances ?? config.licenseMaxActivationsDefault;
+  const maxInst = d.max_instances ?? maxActs;
+
+  const licRes = await createLicenseWeb({
+    userId: d.user_id,
+    subscriptionId: d.subscription_id ?? null,
+    planId: d.plan_id,
+    licenseKeyPlaintext: plaintext,
+    licenseKeyHash: hash,
+    expiresAt: d.expires_at ? new Date(d.expires_at) : null,
+    maxActivations: maxActs,
+    notes: d.notes ?? null,
+    tier: d.tier,
+    maxInstances: maxInst,
+    isTrial: d.is_trial,
+    trialEndsAt: d.trial_ends_at ? new Date(d.trial_ends_at) : null,
+  });
+
+  const id = licRes.rows[0]?.id;
+  if (!id) return res.status(500).json({ error: "Failed to create license" });
+  return res.json({ license_id: id, license_key: plaintext });
 }));
 
 router.get("/me", requireUser, asyncHandler(async (req, res) => {

@@ -242,11 +242,11 @@ export default function Subscriptions() {
       const rzp = new window.Razorpay({
         key: res.key_id,
         subscription_id: res.subscription_id,
-        name: "Ghost",
+        name: "Ira",
         description: `${selectedPlan.name} – ${selectedPlan.price}/mo`,
         callback_url: callbackUrl,
         prefill: { email: trimmedEmail },
-        theme: { color: "#ff9a8b" },
+        theme: { color: "#32d74b" },
       });
       rzp.open();
       closePayModal();
@@ -262,9 +262,9 @@ export default function Subscriptions() {
   };
 
   return (
-    <div className="px-4 py-12 sm:px-6 sm:py-16 md:px-8 md:py-20 lg:px-12 lg:py-24 xl:px-32 xl:py-24" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+    <div className="px-4 py-12 sm:px-6 sm:py-16 md:px-8 md:py-20 lg:px-12 lg:py-24 xl:px-32 xl:py-24" style={{ fontFamily: "JetBrains Mono, monospace" }}>
       <div className="max-w-4xl">
-        <h1 className="mb-2 text-2xl sm:text-3xl font-bold" style={{ fontFamily: "Bebas Neue, sans-serif", color: "#ff9a8b" }}>
+        <h1 className="mb-2 text-2xl sm:text-3xl font-bold" style={{ fontFamily: "JetBrains Mono, monospace", color: "#32d74b" }}>
           Subscription plans
         </h1>
         <p className="mb-6 sm:mb-8 text-white text-sm sm:text-base">
@@ -272,15 +272,15 @@ export default function Subscriptions() {
         </p>
 
         {/* Free Trial section */}
-        <div className="mb-8 rounded-lg border border-[#ff9a8b]/40 bg-[#ff9a8b]/10 p-4 sm:p-6">
-          <h2 className="mb-2 text-lg font-semibold" style={{ color: "#ff9a8b" }}>14-day free trial</h2>
+        <div className="mb-8 rounded-lg border border-[#32d74b]/40 bg-[#32d74b]/10 p-4 sm:p-6">
+          <h2 className="mb-2 text-lg font-semibold" style={{ color: "#32d74b" }}>14-day free trial</h2>
           <p className="mb-4 text-sm text-white/80">
             No credit card required. Verify your email to get started.
           </p>
           <button
             onClick={openTrialModal}
             disabled={loading}
-            className="rounded-lg border border-[#ff9a8b] bg-[#ff9a8b]/20 px-6 py-2.5 font-medium text-white transition-colors hover:bg-[#ff9a8b]/30 disabled:cursor-not-allowed disabled:opacity-70"
+            className="rounded-lg border border-[#32d74b] bg-[#32d74b]/20 px-6 py-2.5 font-medium text-white transition-colors hover:bg-[#32d74b]/30 disabled:cursor-not-allowed disabled:opacity-70"
           >
             Start Free Trial
           </button>
@@ -298,7 +298,7 @@ export default function Subscriptions() {
               key={plan.id}
               className="min-w-0 rounded-lg border border-white/20 bg-white/5 p-4 sm:p-6"
             >
-              <h3 className="mb-2 text-base sm:text-lg font-semibold" style={{ color: "#c96a5b" }}>{plan.name}</h3>
+              <h3 className="mb-2 text-base sm:text-lg font-semibold" style={{ color: "#ff9f0a" }}>{plan.name}</h3>
               <p className="mb-4 text-sm text-white/80">{plan.desc}</p>
               <p className="mb-6 text-2xl font-semibold text-white">{plan.price}/mo</p>
               <button
@@ -313,7 +313,7 @@ export default function Subscriptions() {
         </div>
         <p className="mt-8 text-sm text-white/80">
           Already have an account?{" "}
-          <Link to="/login" className="text-[#ff9a8b] hover:underline">Sign in</Link>
+          <Link to="/login" className="text-[#32d74b] hover:underline">Sign in</Link>
         </p>
       </div>
 
@@ -328,7 +328,7 @@ export default function Subscriptions() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold" style={{ color: "#ff9a8b" }}>
+              <h2 className="text-xl font-semibold" style={{ color: "#32d74b" }}>
                 {trialStep === "email" && "Start your free trial"}
                 {trialStep === "otp" && "Enter verification code"}
                 {trialStep === "success" && "You're all set!"}
@@ -352,7 +352,7 @@ export default function Subscriptions() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="mb-4 w-full rounded-lg border border-white/30 bg-black px-3 py-2.5 text-white placeholder-white/50 focus:border-[#ff9a8b] focus:outline-none focus:ring-1 focus:ring-[#ff9a8b]"
+                  className="mb-4 w-full rounded-lg border border-white/30 bg-black px-3 py-2.5 text-white placeholder-white/50 focus:border-[#32d74b] focus:outline-none focus:ring-1 focus:ring-[#32d74b]"
                   autoFocus
                 />
                 {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
@@ -387,7 +387,7 @@ export default function Subscriptions() {
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                   placeholder="000000"
-                  className="mb-4 w-full rounded-lg border border-white/30 bg-black px-3 py-2.5 text-center text-lg tracking-[0.5em] text-white placeholder-white/50 focus:border-[#ff9a8b] focus:outline-none focus:ring-1 focus:ring-[#ff9a8b]"
+                  className="mb-4 w-full rounded-lg border border-white/30 bg-black px-3 py-2.5 text-center text-lg tracking-[0.5em] text-white placeholder-white/50 focus:border-[#32d74b] focus:outline-none focus:ring-1 focus:ring-[#32d74b]"
                   autoFocus
                 />
                 {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
@@ -410,7 +410,7 @@ export default function Subscriptions() {
                 <button
                   onClick={handleSendOtp}
                   disabled={loading}
-                  className="mt-3 w-full text-sm text-[#ff9a8b] hover:underline"
+                  className="mt-3 w-full text-sm text-[#32d74b] hover:underline"
                 >
                   Resend code
                 </button>
@@ -420,7 +420,7 @@ export default function Subscriptions() {
             {trialStep === "success" && (
               <>
                 <p className="mb-4 text-sm text-white/80">
-                  Your 14-day free trial is active. Use your email <span className="text-white">{verifiedEmail}</span> in the Ghost app to sign in and get started.
+                  Your 14-day free trial is active. Use your email <span className="text-white">{verifiedEmail}</span> in the Ira desktop app to sign in and get started.
                 </p>
                 <div className="mb-4 rounded-lg border border-white/20 bg-white/5 p-3">
                   <p className="mb-1 text-xs text-white/60">License key (save this)</p>
@@ -449,7 +449,7 @@ export default function Subscriptions() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold" style={{ color: "#ff9a8b" }}>
+              <h2 className="text-xl font-semibold" style={{ color: "#32d74b" }}>
                 Subscribe to {selectedPlan.name}
               </h2>
               <button
@@ -470,7 +470,7 @@ export default function Subscriptions() {
                   value={payEmail}
                   onChange={(e) => setPayEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="mb-4 w-full rounded-lg border border-white/30 bg-black px-3 py-2.5 text-white placeholder-white/50 focus:border-[#ff9a8b] focus:outline-none focus:ring-1 focus:ring-[#ff9a8b]"
+                  className="mb-4 w-full rounded-lg border border-white/30 bg-black px-3 py-2.5 text-white placeholder-white/50 focus:border-[#32d74b] focus:outline-none focus:ring-1 focus:ring-[#32d74b]"
                   autoFocus
                 />
                 {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
@@ -504,7 +504,7 @@ export default function Subscriptions() {
                   value={payOtp}
                   onChange={(e) => setPayOtp(e.target.value.replace(/\D/g, ""))}
                   placeholder="000000"
-                  className="mb-4 w-full rounded-lg border border-white/30 bg-black px-3 py-2.5 text-center text-lg tracking-[0.5em] text-white placeholder-white/50 focus:border-[#ff9a8b] focus:outline-none focus:ring-1 focus:ring-[#ff9a8b]"
+                  className="mb-4 w-full rounded-lg border border-white/30 bg-black px-3 py-2.5 text-center text-lg tracking-[0.5em] text-white placeholder-white/50 focus:border-[#32d74b] focus:outline-none focus:ring-1 focus:ring-[#32d74b]"
                   autoFocus
                 />
                 {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
@@ -527,7 +527,7 @@ export default function Subscriptions() {
                 <button
                   onClick={handlePaySendOtp}
                   disabled={loading}
-                  className="mt-3 w-full text-sm text-[#ff9a8b] hover:underline"
+                  className="mt-3 w-full text-sm text-[#32d74b] hover:underline"
                 >
                   Resend code
                 </button>

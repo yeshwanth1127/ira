@@ -4,18 +4,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        ghost: {
-          bg: "#0f172a",
-          surface: "#1e293b",
-          border: "#334155",
-          muted: "#94a3b8",
-          text: "#e2e8f0",
-          accent: "#3b82f6",
-          error: "#f87171",
+        ira: {
+          bg: "#000000",
+          surface: "#0a0a0a",
+          border: "#2e2e2e",
+          muted: "#8e8e93",
+          text: "#e8e8ed",
+          accent: "#32d74b",
+          error: "#ff453a",
+          brand: "#32d74b",
+          warn: "#ff9f0a",
         },
       },
       fontFamily: {
-        sans: ["system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        sans: [
+          '"JetBrains Mono"',
+          "ui-monospace",
+          "SFMono-Regular",
+          '"SF Mono"',
+          "Menlo",
+          "Consolas",
+          "monospace",
+        ],
       },
     },
   },

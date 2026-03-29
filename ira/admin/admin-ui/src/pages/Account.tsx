@@ -23,10 +23,10 @@ export default function Account() {
   };
 
   return (
-    <div className="px-4 py-12 sm:px-6 sm:py-16 md:px-8 md:py-20 lg:px-12 lg:py-24 xl:px-32 xl:py-24" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+    <div className="px-4 py-12 sm:px-6 sm:py-16 md:px-8 md:py-20 lg:px-12 lg:py-24 xl:px-32 xl:py-24" style={{ fontFamily: "JetBrains Mono, monospace" }}>
       <div className="max-w-2xl">
         <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-xl sm:text-2xl font-bold" style={{ fontFamily: "Bebas Neue, sans-serif", color: "#ff9a8b" }}>
+          <h1 className="text-xl sm:text-2xl font-bold" style={{ fontFamily: "JetBrains Mono, monospace", color: "#32d74b" }}>
             My Account
           </h1>
           <button
@@ -37,7 +37,7 @@ export default function Account() {
           </button>
         </div>
         <div className="mb-6 rounded-lg border border-white/20 bg-white/5 p-4 sm:p-6">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: "#c96a5b" }}>Account details</h2>
+          <h2 className="mb-4 text-base font-semibold" style={{ color: "#ff9f0a" }}>Account details</h2>
           <p className="mb-1 text-sm text-white/80">Email</p>
           <p className="mb-4 text-white">{email || "—"}</p>
           <p className="mb-1 text-sm text-white/80">Plan</p>
@@ -52,9 +52,12 @@ export default function Account() {
           >
             Copy license
           </button>
+          <p className="mt-4 text-sm text-white/60">
+            In the desktop app, enter this key once per machine. Activations are tied to each device up to your plan&apos;s device limit.
+          </p>
         </div>
         <div className="rounded-lg border border-white/20 bg-white/5 p-4 sm:p-6">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: "#c96a5b" }}>Upgrade</h2>
+          <h2 className="mb-4 text-base font-semibold" style={{ color: "#ff9f0a" }}>Upgrade</h2>
           <p className="mb-6 text-white">
             Get more tokens and access to premium models with a subscription.
           </p>

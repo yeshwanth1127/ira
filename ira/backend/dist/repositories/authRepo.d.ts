@@ -9,6 +9,7 @@ export declare function createLicenseForUser(params: {
     userId: string;
     planId: string;
     licenseHash: string;
+    licenseKeyPlaintext?: string | null;
     expiresAt: Date | null;
     maxActivations: number;
     notes?: string | null;

@@ -6,6 +6,7 @@ import { emitTo, listen, TauriEvent } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { currentMonitor, getCurrentWindow, LogicalPosition, LogicalSize, Window } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { theme } from "./theme";
 
 export default function ExactIraUI() {
   const [input, setInput] = React.useState("");
@@ -24,36 +25,55 @@ export default function ExactIraUI() {
     activationId: "ira_activation_id",
   };
 
+  /** Bottom of the visible top bar (client area). Outer size on Windows often includes shadow, which left a gap below the bar. */
+  const mainBarAnchorLogical = async (main: ReturnType<typeof getCurrentWindow>) => {
+    const sf = await main.scaleFactor();
+    try {
+      const innerPos = await main.innerPosition();
+      const inner = await main.innerSize();
+      const p = innerPos.toLogical(sf);
+      const s = inner.toLogical(sf);
+      return { left: p.x, bottom: p.y + s.height, width: s.width };
+    } catch {
+      const outerPos = await main.outerPosition();
+      const outer = await main.outerSize();
+      const p = outerPos.toLogical(sf);
+      const s = outer.toLogical(sf);
+      return { left: p.x, bottom: p.y + TOPBAR_HEIGHT, width: s.width };
+    }
+  };
+
+  /**
+   * Place child webviews flush under the main window’s inner bottom edge (same as the response window).
+   * Visual breathing room below the top bar matches childPanelConstants.CHILD_PANEL_PADDING inside each webview.
+   */
   const positionResponseWindow = async () => {
     const main = getCurrentWindow();
     const resp = await Window.getByLabel("response");
     if (!resp) return;
 
-    const pos = await main.outerPosition();
-    const size = await main.outerSize();
-    await resp.setPosition(new LogicalPosition(pos.x, pos.y + size.height));
+    const anchor = await mainBarAnchorLogical(main);
+    await resp.setPosition(new LogicalPosition(anchor.left, anchor.bottom));
   };
 
   const positionSettingsWindow = async () => {
     const main = getCurrentWindow();
     const settings = await WebviewWindow.getByLabel("settings");
     if (!settings) return;
-    const pos = await main.outerPosition();
-    const mainSize = await main.outerSize();
+    const anchor = await mainBarAnchorLogical(main);
     const mon = await currentMonitor();
-    const gap = 8;
-    const top = pos.y + mainSize.height + gap;
-    let w = mainSize.width;
+    const top = anchor.bottom;
+    const w = anchor.width;
     let h = 820;
     if (mon) {
       const sf = mon.scaleFactor;
       const wa = mon.workArea;
       const workBottomLogical = wa.position.y / sf + wa.size.height / sf;
-      const calc = Math.floor(workBottomLogical - top - 12);
+      const calc = Math.floor(workBottomLogical - top);
       h = Math.max(480, Math.min(calc, 960));
     }
     await settings.setSize(new LogicalSize(w, h));
-    await settings.setPosition(new LogicalPosition(pos.x, top));
+    await settings.setPosition(new LogicalPosition(anchor.left, top));
   };
 
   const ensureResponseWindow = async () => {
@@ -71,7 +91,7 @@ export default function ExactIraUI() {
       decorations: false,
       // Opaque webview so the pink panel can align 1:1 with the window (no transparent halo).
       transparent: false,
-      backgroundColor: "#E59898",
+      backgroundColor: theme.windowBg,
       alwaysOnTop: true,
       resizable: false,
       visible: false,
@@ -107,7 +127,8 @@ export default function ExactIraUI() {
       width: WIDTH,
       height: 820,
       decorations: false,
-      transparent: true,
+      transparent: false,
+      backgroundColor: theme.windowBg,
       alwaysOnTop: true,
       resizable: false,
       visible: false,
@@ -181,26 +202,28 @@ export default function ExactIraUI() {
 
   useEffect(() => {
     // Keep child windows glued under the topbar when it moves or resizes.
-    // `onMoved`/`onResized` are unreliable on some Windows builds; `listen` on this window is bound correctly.
     const main = getCurrentWindow();
     let unlistenMoved: (() => void) | null = null;
     let unlistenResized: (() => void) | null = null;
+    let unlistenOnMoved: (() => void) | null = null;
+
+    const repositionChildren = () => {
+      void positionResponseWindow();
+      void positionSettingsWindow();
+    };
 
     const setup = async () => {
-      unlistenMoved = await main.listen(TauriEvent.WINDOW_MOVED, () => {
-        void positionResponseWindow();
-        void positionSettingsWindow();
-      });
-      unlistenResized = await main.listen(TauriEvent.WINDOW_RESIZED, () => {
-        void positionResponseWindow();
-        void positionSettingsWindow();
-      });
+      unlistenMoved = await main.listen(TauriEvent.WINDOW_MOVED, repositionChildren);
+      unlistenResized = await main.listen(TauriEvent.WINDOW_RESIZED, repositionChildren);
+      // Fires during drag on more builds than WINDOW_MOVED alone (Windows).
+      unlistenOnMoved = await main.onMoved(repositionChildren);
     };
     void setup();
 
     return () => {
       if (unlistenMoved) unlistenMoved();
       if (unlistenResized) unlistenResized();
+      if (unlistenOnMoved) unlistenOnMoved();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

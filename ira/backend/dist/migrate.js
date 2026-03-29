@@ -1,7 +1,9 @@
 import "./load-env.js";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { dbQuery, getPool } from "./db.js";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 async function ensureMigrationsTable() {
     await dbQuery(`
     CREATE TABLE IF NOT EXISTS app_migrations (

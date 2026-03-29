@@ -1,11 +1,11 @@
 use axum::{extract::State, Json};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use sqlx::Row;
 use uuid::Uuid;
 
 use crate::auth::{Claims, CustomerClaims};
+use crate::ira_backend::{issue_license, IssueLicenseBody};
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
@@ -151,21 +151,6 @@ pub async fn customer_login(
     }))
 }
 
-pub fn generate_license_key() -> String {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
-    let chars: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let part1: String = (0..8).map(|_| chars[rng.gen_range(0..chars.len())] as char).collect();
-    let part2: String = (0..8).map(|_| chars[rng.gen_range(0..chars.len())] as char).collect();
-    format!("GHOST-{}-{}", part1, part2)
-}
-
-fn hash_license_key(license_key: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(license_key.as_bytes());
-    hex::encode(hasher.finalize())
-}
-
 pub async fn register(
     State(state): State<AppState>,
     Json(req): Json<RegisterRequest>,
@@ -192,8 +177,6 @@ pub async fn register(
         .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let user_id = Uuid::new_v4();
-    let license_key = generate_license_key();
-    let license_key_hash = hash_license_key(&license_key);
     let now = chrono::Utc::now();
     let trial_ends_at = now + chrono::Duration::days(14);
     let monthly_reset_at = now + chrono::Duration::days(30);
@@ -215,20 +198,37 @@ pub async fn register(
     .await
     .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    sqlx::query(
-        "INSERT INTO licenses (id, license_key, license_key_hash, user_id, plan_id, status, tier, max_instances, is_trial, trial_ends_at, issued_at, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, 'active', 'free', 1, true, $6, $7, $7, $7)",
+    let http = reqwest::Client::new();
+    let issued = issue_license(
+        &http,
+        &state.config,
+        IssueLicenseBody {
+            user_id: user_id.to_string(),
+            plan_id: plan_id.to_string(),
+            subscription_id: None,
+            is_trial: true,
+            trial_ends_at: Some(trial_ends_at.to_rfc3339()),
+            tier: "free".to_string(),
+            max_instances: 1,
+            max_activations: Some(1),
+            expires_at: None,
+            notes: Some("admin-api password signup trial".to_string()),
+        },
     )
-    .bind(Uuid::new_v4())
-    .bind(&license_key)
-    .bind(&license_key_hash)
-    .bind(&user_id)
-    .bind(&plan_id)
-    .bind(trial_ends_at)
-    .bind(now)
-    .execute(&state.pool)
-    .await
-    .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .await;
+
+    let issued = match issued {
+        Ok(v) => v,
+        Err(e) => {
+            let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+                .bind(&user_id)
+                .execute(&state.pool)
+                .await;
+            return Err((axum::http::StatusCode::INTERNAL_SERVER_ERROR, e));
+        }
+    };
+
+    let license_key = issued.license_key;
 
     Ok(Json(RegisterResponse {
         user_id: user_id.to_string(),

@@ -1,45 +1,57 @@
 import React from "react";
-
-const COLORS = {
-  innerBox: "#E59898",
-  primary: "#1A1A1A",
-};
+import { theme } from "../theme";
 
 export default function ResponseContentBox({
   title,
   body,
   loading,
   error,
+}: {
+  title?: string;
+  body?: string;
+  loading?: boolean;
+  error?: string | null;
 }) {
   return (
-    <div style={{
-      borderRadius: 16,
-      background: COLORS.innerBox,
-      padding: 18,
-      minHeight: 220,
-    }}>
+    <div
+      style={{
+        borderRadius: 8,
+        background: theme.bgPanel,
+        border: `1px solid ${theme.border}`,
+        padding: 16,
+        minHeight: 220,
+        fontFamily: theme.fontMono,
+        fontSize: 13,
+      }}
+    >
       {loading ? (
-        <div style={{ color: COLORS.primary, fontSize: 13 }}>Generating response...</div>
+        <div style={{ color: theme.orange }}>$ generating…</div>
       ) : error ? (
-        <div style={{ color: "#b00020", fontSize: 13 }}>{error}</div>
+        <div style={{ color: theme.red }}>{error}</div>
       ) : (
         <>
           {title && (
-            <div style={{
-              fontSize: 14,
-              fontWeight: 700,
-              marginBottom: 10,
-              color: COLORS.primary,
-            }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                marginBottom: 10,
+                color: theme.green,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+              }}
+            >
               {title}
             </div>
           )}
-          <div style={{
-            fontSize: 13,
-            lineHeight: 1.6,
-            color: COLORS.primary,
-            textTransform: "uppercase",
-          }}>
+          <div
+            style={{
+              fontSize: 13,
+              lineHeight: 1.65,
+              color: theme.text,
+              whiteSpace: "pre-wrap",
+            }}
+          >
             {body}
           </div>
         </>

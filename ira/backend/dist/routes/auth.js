@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
-import { config } from "../config.js";
+import { config, customerJwtVerificationSecrets } from "../config.js";
 import { randomToken, sha256Base64Url } from "../utils/crypto.js";
 import { signAccessToken } from "../auth/tokens.js";
 import { generateLicenseKey, licenseKeyHash } from "../licensing/license.js";
@@ -51,6 +51,7 @@ router.post("/register", asyncHandler(async (req, res) => {
                 userId,
                 planId: plan.id,
                 licenseHash: hash,
+                licenseKeyPlaintext: plaintext,
                 expiresAt,
                 maxActivations: config.licenseMaxActivationsDefault,
                 notes: "auto-issued trial",
@@ -96,23 +97,35 @@ router.post("/login", asyncHandler(async (req, res) => {
 }));
 /**
  * After email+OTP on admin-api (`/api/trial/verify-otp`), exchange the customer JWT for IRA access + refresh tokens.
- * Set CUSTOMER_JWT_SECRET to the same value as admin-api ADMIN_SECRET.
+ * Set any of CUSTOMER_JWT_SECRET, ADMIN_API_JWT_SECRET, or ADMIN_SECRET to the same value as admin-api ADMIN_SECRET.
  */
 router.post("/exchange-customer-jwt", asyncHandler(async (req, res) => {
     const parsed = ExchangeCustomerJwtSchema.safeParse(req.body);
     if (!parsed.success)
         return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
-    if (!config.customerJwtSecret) {
-        return res.status(503).json({ error: "CUSTOMER_JWT_SECRET is not configured (must match admin-api ADMIN_SECRET)" });
+    const secrets = customerJwtVerificationSecrets();
+    if (secrets.length === 0) {
+        return res.status(503).json({
+            error: "No customer JWT secret configured. Set CUSTOMER_JWT_SECRET or ADMIN_SECRET to match admin-api ADMIN_SECRET.",
+        });
     }
     let userId;
-    try {
-        const decoded = jwt.verify(parsed.data.customer_token, config.customerJwtSecret);
-        if (typeof decoded.sub !== "string" || !decoded.sub)
-            throw new Error("bad sub");
-        userId = decoded.sub;
+    for (const secret of secrets) {
+        try {
+            const decoded = jwt.verify(parsed.data.customer_token, secret, {
+                algorithms: ["HS256"],
+                clockTolerance: 60,
+            });
+            if (typeof decoded.sub === "string" && decoded.sub) {
+                userId = decoded.sub;
+                break;
+            }
+        }
+        catch {
+            /* try next secret */
+        }
     }
-    catch {
+    if (!userId) {
         return res.status(401).json({ error: "Invalid or expired customer token" });
     }
     const userRes = await getUserById(userId);

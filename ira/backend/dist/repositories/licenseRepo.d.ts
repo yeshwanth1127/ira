@@ -29,6 +29,24 @@ export declare function createLicense(params: {
     expiresAt: Date | null;
     maxActivations: number;
     notes: string | null;
+    licenseKeyPlaintext?: string | null;
+}): Promise<import("pg").QueryResult<{
+    id: string;
+}>>;
+/** Full row for web + desktop: IRA HMAC hash, plaintext key, admin-ui columns. Internal API only. */
+export declare function createLicenseWeb(params: {
+    userId: string;
+    subscriptionId: string | null;
+    planId: string;
+    licenseKeyPlaintext: string;
+    licenseKeyHash: string;
+    expiresAt: Date | null;
+    maxActivations: number;
+    notes: string | null;
+    tier: string;
+    maxInstances: number;
+    isTrial: boolean;
+    trialEndsAt: Date | null;
 }): Promise<import("pg").QueryResult<{
     id: string;
 }>>;

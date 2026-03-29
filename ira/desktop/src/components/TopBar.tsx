@@ -1,12 +1,7 @@
 import { ChangeEvent, KeyboardEvent, ReactNode } from "react";
 import { Window } from "@tauri-apps/api/window";
 import IraLogo from "../assets/ira_logo.svg";
-
-const COLORS = {
-  topBar: "#E6D6D6",
-  accent: "#3A2F2F",
-  primary: "#1A1A1A",
-};
+import { theme } from "../theme";
 
 interface TopBarProps {
   input: string;
@@ -26,21 +21,25 @@ export default function TopBar({
   onSwitchMode,
 }: TopBarProps) {
   return (
-    <div style={{
-      height: 70,
-      borderRadius: 0,
-      background: COLORS.topBar,
-      display: "flex",
-      alignItems: "center",
-      padding: "0 16px",
-      gap: 12,
-      position: "relative",
-      // Helps some Windows configurations treat the area as draggable.
-      WebkitAppRegion: "drag" as any,
-      width: "100%",
-      boxSizing: "border-box",
-    }} data-tauri-drag-region="true">
-      {/* Left: Draggable Three-dot Button */}
+    <div
+      style={{
+        height: 70,
+        borderRadius: 0,
+        background: theme.topBar,
+        borderBottom: `1px solid ${theme.border}`,
+        display: "flex",
+        alignItems: "center",
+        padding: "0 16px",
+        gap: 12,
+        position: "relative",
+        WebkitAppRegion: "drag" as any,
+        width: "100%",
+        boxSizing: "border-box",
+        fontFamily: theme.fontMono,
+        fontSize: 13,
+      }}
+      data-tauri-drag-region="true"
+    >
       <div
         style={{
           width: 32,
@@ -48,8 +47,9 @@ export default function TopBar({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: 22,
-          color: COLORS.accent,
+          fontSize: 8,
+          letterSpacing: 2,
+          color: theme.red,
           cursor: "grab",
           userSelect: "none",
           marginRight: 8,
@@ -57,56 +57,61 @@ export default function TopBar({
         }}
         data-tauri-drag-region="true"
         onMouseDown={async (e) => {
-          // Only start drag on primary mouse button.
           if (typeof e.button === "number" && e.button !== 0) return;
           e.preventDefault();
           e.stopPropagation();
-          await Window.getCurrent().startDragging();
+          try {
+            await Window.getCurrent().startDragging();
+          } catch {
+            /* requires core:window:allow-start-dragging */
+          }
         }}
         onTouchStart={(e) => {
           e.stopPropagation();
-          void Window.getCurrent().startDragging();
+          void Window.getCurrent().startDragging().catch(() => {});
         }}
         title="Move window"
       >
-        &#8226;&#8226;&#8226;
+        ●●●
       </div>
-      {/* IRA Logo */}
       <img
         src={IraLogo}
-        alt="IRA Logo"
+        alt="IRA"
         style={{
           width: 20,
           height: 20,
-          border: `2px solid ${COLORS.accent}`,
+          border: `1px solid ${theme.green}`,
           borderRadius: 4,
           marginRight: 12,
           objectFit: "cover",
-          background: "#fff",
+          background: theme.bgInput,
         }}
       />
-      {/* Input Field with Send Button */}
-      <div style={{
-        position: "relative",
-        flex: 1,
-        display: "flex",
-        alignItems: "center",
-        WebkitAppRegion: "no-drag" as any,
-      }} data-tauri-drag-region="false">
+      <div
+        style={{
+          position: "relative",
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          WebkitAppRegion: "no-drag" as any,
+        }}
+        data-tauri-drag-region="false"
+      >
         <input
           style={{
             height: 42,
-            borderRadius: 20,
-            background: "transparent",
-            border: `2px solid ${COLORS.accent}`,
-            padding: "0 44px 0 16px",
-            fontSize: 14,
-            color: COLORS.primary,
+            borderRadius: 6,
+            background: theme.bgInput,
+            border: `1px solid ${theme.border}`,
+            padding: "0 44px 0 14px",
+            fontSize: 13,
+            color: theme.text,
             flex: 1,
             outline: "none",
             boxSizing: "border-box",
+            fontFamily: theme.fontMono,
           }}
-          placeholder="Type your message..."
+          placeholder="type message…"
           value={input}
           onChange={onInputChange}
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && onSend()}
@@ -131,28 +136,35 @@ export default function TopBar({
           disabled={disabled}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M2 10L18 3L11 19L9 11L2 10Z" fill="none" stroke="#3A2F2F" strokeWidth="2" strokeLinejoin="round"/>
+            <path
+              d="M2 10L18 3L11 19L9 11L2 10Z"
+              fill="none"
+              stroke={theme.green}
+              strokeWidth="2"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
       </div>
-      {/* Center Icon Group */}
       {icons}
-      {/* Right: Switch Mode Button */}
       <button
         style={{
-          padding: "6px 14px",
-          borderRadius: 20,
-          border: `2px solid ${COLORS.accent}`,
+          padding: "6px 12px",
+          borderRadius: 6,
+          border: `1px solid ${theme.border}`,
           background: "transparent",
-          fontSize: 12,
-          color: COLORS.primary,
+          fontSize: 11,
+          color: theme.textMuted,
           marginLeft: "auto",
           WebkitAppRegion: "no-drag" as any,
+          fontFamily: theme.fontMono,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
         }}
         onClick={onSwitchMode}
         data-tauri-drag-region="false"
       >
-        Switch Mode
+        Mode
       </button>
     </div>
   );

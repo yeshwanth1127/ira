@@ -2,6 +2,8 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { emit, listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { CHILD_PANEL_PADDING } from "./childPanelConstants";
+import { theme } from "./theme";
 
 type ResponsePayload = {
   loading: boolean;
@@ -13,7 +15,6 @@ type ResponsePayload = {
 const WIDTH = 900;
 const MAX_HEIGHT = 700;
 
-/** Fills the webview client area edge-to-edge (opaque window + fixed layer). */
 const PANEL: React.CSSProperties = {
   position: "fixed",
   left: 0,
@@ -24,10 +25,26 @@ const PANEL: React.CSSProperties = {
   height: "100%",
   margin: 0,
   boxSizing: "border-box",
-  background: "#E59898",
+  background: theme.windowBg,
+  borderTop: `1px solid ${theme.border}`,
   borderRadius: 0,
-  padding: 16,
+  padding: CHILD_PANEL_PADDING,
   overflow: "auto",
+  fontFamily: theme.fontMono,
+  fontSize: 13,
+};
+
+const btn: React.CSSProperties = {
+  border: `1px solid ${theme.border}`,
+  background: theme.bgInput,
+  cursor: "pointer",
+  fontSize: 11,
+  padding: "4px 10px",
+  borderRadius: 6,
+  color: theme.orange,
+  fontFamily: theme.fontMono,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
 };
 
 export default function ResponseWindowUI() {
@@ -43,11 +60,9 @@ export default function ResponseWindowUI() {
   const show = state.loading || !!state.response || !!state.error;
 
   useEffect(() => {
-    // Tell the main window we're ready to receive state.
     void emit("ira:response-ready", { label: getCurrentWindow().label });
     const unlistenPromise = listen<ResponsePayload>("ira:response-state", (event) => {
       setState(event.payload);
-      // Ensure visible when updates arrive.
       void getCurrentWindow().show();
     });
     return () => {
@@ -80,7 +95,6 @@ export default function ResponseWindowUI() {
   };
 
   useLayoutEffect(() => {
-    // Start hidden until we receive state from main.
     void getCurrentWindow().hide();
   }, []);
 
@@ -98,64 +112,51 @@ export default function ResponseWindowUI() {
   }, [showHistory, state.conversation_id]);
 
   const headerText = useMemo(() => {
-    if (state.loading) return "Thinking...";
-    if (state.error) return "Error";
-    return "Response";
+    if (state.loading) return "$ thinking…";
+    if (state.error) return "! error";
+    return "$ out";
   }, [state.loading, state.error]);
 
   return (
     <div ref={bodyRef} style={PANEL}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
-        <div style={{ color: "#333", fontSize: 13, opacity: 0.85 }}>{headerText}</div>
-        <button
-          onClick={() => setShowHistory((v) => !v)}
-          style={{
-            border: "1px solid #5a4444",
-            background: "transparent",
-            cursor: "pointer",
-            fontSize: 12,
-            padding: "4px 8px",
-            borderRadius: 6,
-            color: "#3A2F2F",
-          }}
-        >
-          {showHistory ? "Hide History" : "Show History"}
-        </button>
-        <button
-          onClick={() => {
-            setState({ loading: false, response: "", error: null });
-            void getCurrentWindow().hide();
-          }}
-          style={{
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            fontSize: 16,
-            lineHeight: "16px",
-            padding: "4px 8px",
-            borderRadius: 8,
-            color: "#3A2F2F",
-          }}
-          aria-label="Close"
-        >
-          ✕
-        </button>
+        <div style={{ color: theme.green, fontSize: 12 }}>{headerText}</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" onClick={() => setShowHistory((v) => !v)} style={btn}>
+            {showHistory ? "hide log" : "log"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setState({ loading: false, response: "", error: null });
+              void getCurrentWindow().hide();
+            }}
+            style={{ ...btn, color: theme.textMuted, borderColor: theme.border }}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
-      {state.error && <div style={{ color: "#333", fontSize: 15 }}>{state.error}</div>}
+      {state.error && <div style={{ color: theme.red, fontSize: 14 }}>{state.error}</div>}
       {state.loading && !state.error && !state.response && (
-        <div style={{ color: "#333", fontSize: 15 }}>Generating response...</div>
+        <div style={{ color: theme.orange, fontSize: 14 }}>$ …</div>
       )}
       {!!state.response && !state.error && (
-        <div style={{ color: "#222", fontSize: 15, whiteSpace: "pre-line" }}>{state.response}</div>
+        <div style={{ color: theme.text, fontSize: 14, whiteSpace: "pre-line", lineHeight: 1.6 }}>{state.response}</div>
       )}
       {showHistory && (
-        <div style={{ marginTop: 12, borderTop: "1px solid #b67f7f", paddingTop: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: "#3A2F2F" }}>Conversation history</div>
-          {history.length === 0 && <div style={{ fontSize: 13, color: "#444" }}>No history yet.</div>}
+        <div style={{ marginTop: 14, borderTop: `1px solid ${theme.border}`, paddingTop: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, marginBottom: 8, color: theme.textMuted, letterSpacing: "0.1em" }}>
+            SESSION LOG
+          </div>
+          {history.length === 0 && <div style={{ fontSize: 12, color: theme.textDim }}>— empty —</div>}
           {history.map((m) => (
-            <div key={m.id} style={{ marginBottom: 8, fontSize: 13, color: "#2a2a2a" }}>
-              <strong>{m.role}:</strong> <span style={{ whiteSpace: "pre-line" }}>{m.content}</span>
+            <div key={m.id} style={{ marginBottom: 10, fontSize: 12, color: theme.text }}>
+              <span style={{ color: m.role === "user" ? theme.orange : theme.green }}>{m.role}</span>
+              <span style={{ color: theme.textDim }}> › </span>
+              <span style={{ whiteSpace: "pre-line" }}>{m.content}</span>
             </div>
           ))}
         </div>

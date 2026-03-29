@@ -1,4 +1,4 @@
-export default function GhostIcon({ className = "w-12 h-12" }: { className?: string }) {
+export default function IraIcon({ className = "w-12 h-12" }: { className?: string }) {
   const lines = Array.from({ length: 36 }).map((_, i) => {
     const angle = (i / 36) * Math.PI * 2;
     const wave = Math.sin(angle * 4) * 3 + Math.sin(angle * 7) * 2;
@@ -28,7 +28,6 @@ export default function GhostIcon({ className = "w-12 h-12" }: { className?: str
           y2={y2}
           stroke="#8a2be2"
           strokeWidth="1.2"
-          strokeLinecap="round"
         />
       ))}
     </svg>

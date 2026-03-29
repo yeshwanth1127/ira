@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 
 const navButtonClass =
   "py-2.5 px-5 rounded-lg border border-white bg-black text-white text-center font-medium transition-colors hover:bg-white/5 text-sm";
-const navButtonStyle = { fontFamily: "Space Grotesk, sans-serif" };
+const navButtonStyle = { fontFamily: "JetBrains Mono, monospace" };
 
 export default function Navbar() {
   const location = useLocation();
@@ -21,26 +21,26 @@ export default function Navbar() {
         <Link
           to="/"
           className="flex items-center gap-3"
-          style={{ fontFamily: "Space Grotesk, sans-serif" }}
+          style={{ fontFamily: "JetBrains Mono, monospace" }}
         >
           <img
             src="/ghost_logo.png"
-            alt="Ghost"
+            alt="Ira"
             className="h-10 w-10 lg:h-12 lg:w-12 object-contain"
           />
           <div>
             <span
               className="text-2xl lg:text-3xl font-bold tracking-tight"
               style={{
-                fontFamily: "Bebas Neue, sans-serif",
-                color: "#ff9a8b",
+                fontFamily: "JetBrains Mono, monospace",
+                color: "#32d74b",
               }}
             >
               GHOST
             </span>
             <p
               className="text-[10px] lg:text-xs"
-              style={{ fontFamily: '"Press Start 2P", monospace', color: "#c96a5b" }}
+              style={{ fontFamily: '"JetBrains Mono", monospace', color: "#ff9f0a" }}
             >
               by Exora
             </p>

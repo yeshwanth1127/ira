@@ -38,8 +38,8 @@ export default function PaySuccess() {
   if (status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 sm:py-16 md:px-8 lg:px-12 xl:px-32">
-        <div className="w-full max-w-md rounded-lg border border-white/20 bg-white/5 p-6 sm:p-8 mx-4" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
-          <h1 className="mb-4 text-xl sm:text-2xl font-bold" style={{ fontFamily: "Bebas Neue, sans-serif", color: "#ff9a8b" }}>Verifying payment...</h1>
+        <div className="w-full max-w-md rounded-lg border border-white/20 bg-white/5 p-6 sm:p-8 mx-4" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+          <h1 className="mb-4 text-xl sm:text-2xl font-bold" style={{ fontFamily: "JetBrains Mono, monospace", color: "#32d74b" }}>Verifying payment...</h1>
           <p className="text-white">Please wait.</p>
         </div>
       </div>
@@ -49,7 +49,7 @@ export default function PaySuccess() {
   if (status === "error") {
     return (
       <div className="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 sm:py-16 md:px-8 lg:px-12 xl:px-32">
-        <div className="w-full max-w-md rounded-lg border border-white/20 bg-white/5 p-6 sm:p-8 mx-4" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+        <div className="w-full max-w-md rounded-lg border border-white/20 bg-white/5 p-6 sm:p-8 mx-4" style={{ fontFamily: "JetBrains Mono, monospace" }}>
           <h1 className="mb-4 text-xl sm:text-2xl font-bold text-red-400">Verification failed</h1>
           <p className="mb-6 text-white">{message}</p>
           <Link
@@ -65,12 +65,12 @@ export default function PaySuccess() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 sm:py-16 md:px-8 lg:px-12 xl:px-32">
-      <div className="w-full max-w-md rounded-lg border border-white/20 bg-white/5 p-6 sm:p-8 mx-4" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
-        <h1 className="mb-4 text-xl sm:text-2xl font-bold" style={{ fontFamily: "Bebas Neue, sans-serif", color: "#22c55e" }}>Payment successful</h1>
-        <p className="mb-4 text-white" style={{ color: "#22c55e" }}>{message}</p>
+      <div className="w-full max-w-md rounded-lg border border-white/20 bg-white/5 p-6 sm:p-8 mx-4" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+        <h1 className="mb-4 text-xl sm:text-2xl font-bold" style={{ fontFamily: "JetBrains Mono, monospace", color: "#32d74b" }}>Payment successful</h1>
+        <p className="mb-4 text-white" style={{ color: "#32d74b" }}>{message}</p>
         {licenseKey && (
           <>
-            <p className="mb-2 text-sm" style={{ color: "#c96a5b" }}>Your license key:</p>
+            <p className="mb-2 text-sm" style={{ color: "#ff9f0a" }}>Your license key:</p>
             <code className="mb-4 block break-all rounded-lg bg-black p-4 text-sm text-white">
               {licenseKey}
             </code>
@@ -87,7 +87,7 @@ export default function PaySuccess() {
             to="/"
             className="inline-block rounded-lg border border-white bg-black px-6 py-3 font-medium text-white no-underline transition-colors hover:bg-white/10"
           >
-            Return to Ghost
+            Return to Ira
           </Link>
           <Link
             to="/account"

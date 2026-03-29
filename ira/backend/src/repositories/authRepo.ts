@@ -15,17 +15,26 @@ export async function createLicenseForUser(params: {
   userId: string;
   planId: string;
   licenseHash: string;
+  licenseKeyPlaintext?: string | null;
   expiresAt: Date | null;
   maxActivations: number;
   notes?: string | null;
 }) {
   return dbQuery<{ id: string }>(
     `
-    INSERT INTO licenses(user_id, subscription_id, plan_id, license_key_hash, status, expires_at, max_activations, notes)
-    VALUES ($1, NULL, $2, $3, 'active', $4, $5, $6)
+    INSERT INTO licenses(user_id, subscription_id, plan_id, license_key, license_key_hash, status, expires_at, max_activations, notes)
+    VALUES ($1, NULL, $2, $3, $4, 'active', $5, $6, $7)
     RETURNING id
     `,
-    [params.userId, params.planId, params.licenseHash, params.expiresAt, params.maxActivations, params.notes ?? null],
+    [
+      params.userId,
+      params.planId,
+      params.licenseKeyPlaintext ?? null,
+      params.licenseHash,
+      params.expiresAt,
+      params.maxActivations,
+      params.notes ?? null,
+    ],
   );
 }
 

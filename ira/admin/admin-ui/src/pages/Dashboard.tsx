@@ -13,7 +13,7 @@ import {
 function Card({ title, value }: { title: string; value: string | number }) {
   return (
     <div className="rounded-lg border border-white/20 bg-white/5 px-4 py-3 sm:px-6 sm:py-4">
-      <div className="mb-1 text-xs" style={{ color: "#c96a5b" }}>{title}</div>
+      <div className="mb-1 text-xs" style={{ color: "#ff9f0a" }}>{title}</div>
       <div className="text-lg sm:text-2xl font-semibold text-white truncate">{value}</div>
     </div>
   );
@@ -53,7 +53,7 @@ function Table<T extends object>({
             <th
               key={String(c.key)}
               className="px-3 py-2 sm:px-4 sm:py-3 text-left text-xs font-medium whitespace-nowrap"
-              style={{ color: "#c96a5b" }}
+              style={{ color: "#ff9f0a" }}
             >
               {c.label}
             </th>
@@ -116,7 +116,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-12 xl:px-32 text-white/80" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+      <div className="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-12 xl:px-32 text-white/80" style={{ fontFamily: "JetBrains Mono, monospace" }}>
         Loading...
       </div>
     );
@@ -124,7 +124,7 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div className="px-4 py-12 sm:px-6 sm:py-16 md:px-8 lg:px-12 xl:px-32" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+      <div className="px-4 py-12 sm:px-6 sm:py-16 md:px-8 lg:px-12 xl:px-32" style={{ fontFamily: "JetBrains Mono, monospace" }}>
         <span className="text-red-400">{error}</span>
         <button
           onClick={() => window.location.reload()}
@@ -137,11 +137,11 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="px-12 py-20 lg:px-32 lg:py-24" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+    <div className="px-12 py-20 lg:px-32 lg:py-24" style={{ fontFamily: "JetBrains Mono, monospace" }}>
       <div className="max-w-6xl">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-bold" style={{ fontFamily: "Bebas Neue, sans-serif", color: "#ff9a8b" }}>
-            Ghost Admin Dashboard
+          <h1 className="text-2xl font-bold" style={{ fontFamily: "JetBrains Mono, monospace", color: "#32d74b" }}>
+            Ira Admin Dashboard
           </h1>
           <button
             onClick={handleLogout}
@@ -159,7 +159,7 @@ export default function Dashboard() {
         </div>
 
         <section className="mb-6 sm:mb-8">
-          <h2 className="mb-3 sm:mb-4 text-sm sm:text-base font-semibold" style={{ color: "#c96a5b" }}>Model Breakdown</h2>
+          <h2 className="mb-3 sm:mb-4 text-sm sm:text-base font-semibold" style={{ color: "#ff9f0a" }}>Model Breakdown</h2>
           <div className="overflow-x-auto rounded-lg border border-white/20 bg-white/5">
             <Table
               columns={[
@@ -176,7 +176,7 @@ export default function Dashboard() {
         </section>
 
         <section className="mb-6 sm:mb-8">
-          <h2 className="mb-3 sm:mb-4 text-sm sm:text-base font-semibold" style={{ color: "#c96a5b" }}>Top Users</h2>
+          <h2 className="mb-3 sm:mb-4 text-sm sm:text-base font-semibold" style={{ color: "#ff9f0a" }}>Top Users</h2>
           <div className="overflow-x-auto rounded-lg border border-white/20 bg-white/5">
             <Table
               columns={[
@@ -191,7 +191,7 @@ export default function Dashboard() {
         </section>
 
         <section>
-          <h2 className="mb-4 text-base font-semibold" style={{ color: "#c96a5b" }}>Recent Messages</h2>
+          <h2 className="mb-4 text-base font-semibold" style={{ color: "#ff9f0a" }}>Recent Messages</h2>
           <div className="max-h-[400px] overflow-y-auto overflow-hidden rounded-lg border border-white/20 bg-white/5">
             <Table
               columns={[

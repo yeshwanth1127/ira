@@ -7,10 +7,18 @@ export async function getTrialPlan() {
 }
 export async function createLicenseForUser(params) {
     return dbQuery(`
-    INSERT INTO licenses(user_id, subscription_id, plan_id, license_key_hash, status, expires_at, max_activations, notes)
-    VALUES ($1, NULL, $2, $3, 'active', $4, $5, $6)
+    INSERT INTO licenses(user_id, subscription_id, plan_id, license_key, license_key_hash, status, expires_at, max_activations, notes)
+    VALUES ($1, NULL, $2, $3, $4, 'active', $5, $6, $7)
     RETURNING id
-    `, [params.userId, params.planId, params.licenseHash, params.expiresAt, params.maxActivations, params.notes ?? null]);
+    `, [
+        params.userId,
+        params.planId,
+        params.licenseKeyPlaintext ?? null,
+        params.licenseHash,
+        params.expiresAt,
+        params.maxActivations,
+        params.notes ?? null,
+    ]);
 }
 export async function getUserByEmail(email) {
     return dbQuery("SELECT id, password_hash, disabled_at FROM users WHERE email=$1", [email]);

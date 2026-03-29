@@ -28,11 +28,45 @@ export async function createActivation(licenseId, deviceId, deviceName) {
     `, [licenseId, deviceId, deviceName]);
 }
 export async function createLicense(params) {
+    const key = params.licenseKeyPlaintext ?? null;
     return dbQuery(`
-    INSERT INTO licenses(user_id, subscription_id, plan_id, license_key_hash, status, expires_at, max_activations, notes)
-    VALUES ($1,$2,$3,$4,'active',$5,$6,$7)
+    INSERT INTO licenses(user_id, subscription_id, plan_id, license_key, license_key_hash, status, expires_at, max_activations, notes)
+    VALUES ($1,$2,$3,$4,$5,'active',$6,$7,$8)
     RETURNING id
-    `, [params.userId, params.subscriptionId, params.planId, params.hash, params.expiresAt, params.maxActivations, params.notes]);
+    `, [params.userId, params.subscriptionId, params.planId, key, params.hash, params.expiresAt, params.maxActivations, params.notes]);
+}
+/** Full row for web + desktop: IRA HMAC hash, plaintext key, admin-ui columns. Internal API only. */
+export async function createLicenseWeb(params) {
+    return dbQuery(`
+    INSERT INTO licenses(
+      user_id, subscription_id, plan_id,
+      license_key, license_key_hash,
+      status, issued_at, expires_at, max_activations, notes,
+      tier, max_instances, is_trial, trial_ends_at,
+      created_at, updated_at
+    )
+    VALUES (
+      $1, $2, $3,
+      $4, $5,
+      'active', now(), $6, $7, $8,
+      $9, $10, $11, $12,
+      now(), now()
+    )
+    RETURNING id
+    `, [
+        params.userId,
+        params.subscriptionId,
+        params.planId,
+        params.licenseKeyPlaintext,
+        params.licenseKeyHash,
+        params.expiresAt,
+        params.maxActivations,
+        params.notes,
+        params.tier,
+        params.maxInstances,
+        params.isTrial,
+        params.trialEndsAt,
+    ]);
 }
 export async function listLicensesByUser(userId) {
     return dbQuery(`

@@ -1,13 +1,17 @@
 use std::env;
 
 /// Hardcoded JWT signing secret for admin tokens
-const ADMIN_SECRET: &str = "ghost-admin-jwt-secret-2025";
+const ADMIN_SECRET: &str = "ira-admin-jwt-secret-2025";
 
 #[derive(Clone)]
 pub struct Config {
     pub database_url: String,
     pub port: u16,
     pub admin_secret: String,
+    /// IRA Node backend base URL (e.g. http://127.0.0.1:5000) — licenses are issued there only.
+    pub ira_backend_url: String,
+    /// Shared with IRA backend `INTERNAL_API_KEY`.
+    pub ira_internal_api_key: String,
     pub razorpay_key_id: String,
     pub razorpay_key_secret: String,
     pub razorpay_webhook_secret: String,
@@ -40,6 +44,8 @@ impl Config {
             database_url,
             port,
             admin_secret: env::var("ADMIN_SECRET").unwrap_or_else(|_| ADMIN_SECRET.to_string()),
+            ira_backend_url: env::var("IRA_BACKEND_URL").unwrap_or_else(|_| "http://127.0.0.1:5000".to_string()),
+            ira_internal_api_key: env::var("INTERNAL_API_KEY").unwrap_or_default().trim().to_string(),
             razorpay_key_id: env::var("RAZORPAY_KEY_ID").unwrap_or_else(|_| String::new()),
             razorpay_key_secret: env::var("RAZORPAY_KEY_SECRET").unwrap_or_else(|_| String::new()),
             razorpay_webhook_secret: env::var("RAZORPAY_WEBHOOK_SECRET").unwrap_or_else(|_| String::new()),

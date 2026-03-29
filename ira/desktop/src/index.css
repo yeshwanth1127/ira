@@ -18,3 +18,9 @@ body,
 body {
   display: block;
 }
+
+#root {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, "Cascadia Code", "JetBrains Mono", Consolas,
+    monospace;
+  -webkit-font-smoothing: antialiased;
+}
