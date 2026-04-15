@@ -1,0 +1,123 @@
+{
+  "name": "Alufit BOQ — customer approval (webhook in + HTTP callback)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Alufit → n8n → customer email → callback\n\n1. Activate this workflow and copy the **Production URL** of the Webhook node (ends with `/webhook/boq-submitted`).\n2. Set `N8N_BOQ_SUBMITTED_WEBHOOK_URL` in backend `.env` to that URL.\n3. Set `N8N_BOQ_CALLBACK_URL` on the API (e.g. `https://your-backend.com/api/approval`) — same URL is shown on **Contracts → workspace**.\n4. **Insert** your Gmail / Outlook / SMTP node **between** *Set_NormalizePayload* and *HTTP_PostApprovalToAlufit*.\n5. Map the customer’s decision into the HTTP node body: `status` must be `approved`, `rejected`, or `changes_requested`.\n6. Set env `CUSTOMER_APPROVAL_WEBHOOK_SECRET` in n8n to match backend `CUSTOMER_APPROVAL_WEBHOOK_SECRET`.\n7. For a quick API test only, enable *HTTP_PostApprovalToAlufit* and edit `status` — disable again for real email use.",
+        "height": 420,
+        "width": 380
+      },
+      "id": "sticky-instructions",
+      "name": "Sticky_Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [40, 120]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "boq-submitted",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "a1f2e3d4-boqs-webhook",
+      "name": "Webhook_BoqSubmitted",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [480, 320],
+      "webhookId": "alufit-boq-submitted"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cb-url",
+              "name": "callback_url",
+              "value": "={{ $json.callback.url }}",
+              "type": "string"
+            },
+            {
+              "id": "bid",
+              "name": "boq_version_id",
+              "value": "={{ $json.boq_version_id }}",
+              "type": "string"
+            },
+            {
+              "id": "cl",
+              "name": "client_name",
+              "value": "={{ $json.client_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2c3d4e5-set-fields",
+      "name": "Set_NormalizePayload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [720, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callback_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.CUSTOMER_APPROVAL_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"boq_version_id\": \"{{ $json.boq_version_id }}\",\n  \"status\": \"approved\",\n  \"note\": \"Replace with parsed email / form value.\"\n}",
+        "options": {}
+      },
+      "id": "d4e5f6a7-http-callback",
+      "name": "HTTP_PostApprovalToAlufit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 320],
+      "disabled": true,
+      "notesInFlow": true,
+      "notes": "Disabled by default. Enable for smoke tests, or place after your email-approval branch."
+    }
+  ],
+  "connections": {
+    "Webhook_BoqSubmitted": {
+      "main": [
+        [
+          {
+            "node": "Set_NormalizePayload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_NormalizePayload": {
+      "main": [
+        [
+          {
+            "node": "HTTP_PostApprovalToAlufit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

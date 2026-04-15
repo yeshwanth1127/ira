@@ -1,0 +1,11 @@
+backend/alufit.db
+backend/uploads/
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+__pycache__/
+*.pyc
+.pytest_cache/
+dist/
+node_modules/
