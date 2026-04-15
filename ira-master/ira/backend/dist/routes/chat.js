@@ -29,11 +29,10 @@ router.post("/", async (req, res) => {
     try {
         console.log("[CHAT DEBUG] Entering licensing check block");
         const licensed = req;
-        let resolvedModel = "openai/gpt-4o-mini";
         if (licensed.entitlements) {
             console.log("[CHAT DEBUG] Entitlements detected, checking model and limits");
             const requestedModel = (model || "").trim();
-            resolvedModel = requestedModel || "openai/gpt-4o-mini";
+            const resolvedModel = requestedModel || "openai/gpt-4o-mini";
             console.log("[CHAT DEBUG] Resolved model:", resolvedModel);
             const allowed = licensed.entitlements.models.some((m) => m.id === resolvedModel);
             console.log("[CHAT DEBUG] Model allowed:", allowed);
@@ -54,7 +53,7 @@ router.post("/", async (req, res) => {
             console.log("[CHAT DEBUG] All licensing checks passed");
         }
         else {
-            console.log("[CHAT DEBUG] Trial request (no license): skipping licensing checks and usage limits");
+            console.log("[CHAT DEBUG] No entitlements, skipping licensing checks");
         }
         console.log("[CHAT DEBUG] About to call chatWithAI()");
         const result = await chatWithAI({ message, messages, model });
@@ -63,7 +62,7 @@ router.post("/", async (req, res) => {
             console.log("[CHAT DEBUG] Recording usage metrics");
             const licensedReq = req;
             const requestId = crypto.randomUUID();
-            const modelId = resolvedModel;
+            const modelId = (result.model || model || "openai/gpt-4o-mini");
             const inputTokens = (result.usage?.prompt_tokens ?? result.usage?.input_tokens ?? 0);
             const outputTokens = (result.usage?.completion_tokens ?? result.usage?.output_tokens ?? 0);
             await recordUsage({
@@ -77,9 +76,6 @@ router.post("/", async (req, res) => {
                 meta: { route: "/chat" },
             });
             console.log("[CHAT DEBUG] Usage metrics recorded");
-        }
-        else {
-            console.warn("[CHAT WARN] Skipping usage recording: no entitlements/license found. Request will not count toward usage limits.");
         }
         console.log("[CHAT DEBUG] Sending successful response to client");
         res.json(result);

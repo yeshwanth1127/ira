@@ -7,17 +7,15 @@ interface TopBarProps {
   input: string;
   onInputChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onSend: () => void;
-  onInputFocus?: () => void;
   disabled: boolean;
   icons: ReactNode;
-  onSwitchMode: (mode: "Agent Mode") => void;
+  onSwitchMode: (mode: "Chat Mode" | "Agent Mode") => void;
 }
 
 export default function TopBar({
   input,
   onInputChange,
   onSend,
-  onInputFocus,
   disabled,
   icons,
   onSwitchMode,
@@ -26,7 +24,7 @@ export default function TopBar({
   const [sendHover, setSendHover] = useState(false);
   const [modeHover, setModeHover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<"Agent Mode" | null>(null);
+  const [selectedMode, setSelectedMode] = useState<"Chat Mode" | "Agent Mode" | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const iconStroke = theme.green;
@@ -162,7 +160,6 @@ export default function TopBar({
           value={input}
           onChange={onInputChange}
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && onSend()}
-          onClick={onInputFocus}
           disabled={disabled}
         />
         <button
@@ -288,7 +285,7 @@ export default function TopBar({
           <span style={{ color: theme.textMuted }}>MODE</span>
           {selectedMode && (
             <span style={{ color: theme.green, marginLeft: 4 }}>
-              • AGENT
+              • {selectedMode === "Chat Mode" ? "CHAT" : "AGENT"}
             </span>
           )}
         </button>
@@ -315,7 +312,7 @@ export default function TopBar({
             zIndex: 1000,
           }}
         >
-          {( ["Agent Mode"] as const ).map((mode) => {
+          {( ["Chat Mode", "Agent Mode"] as const ).map((mode) => {
             const selected = selectedMode === mode;
             return (
               <button
