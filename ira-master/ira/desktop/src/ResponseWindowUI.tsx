@@ -10,6 +10,7 @@ type ResponsePayload = {
   response: string;
   error: string | null;
   conversation_id?: string | null;
+  history?: Array<{ id: string; role: string; content: string }>;
 };
 
 const CHAT_WIDTH = 900;
@@ -49,7 +50,7 @@ const btn: React.CSSProperties = {
   letterSpacing: "0.05em",
 };
 
-export default function ResponseWindowUI() {
+export default function ResponseWindowUI(props?: { history?: Array<{ id: string; role: string; content: string }>; setHistory?: React.Dispatch<React.SetStateAction<Array<{ id: string; role: string; content: string }>>> }) {
   const [state, setState] = useState<ResponsePayload>({
     loading: false,
     response: "",
@@ -58,17 +59,31 @@ export default function ResponseWindowUI() {
   const [activePanel, setActivePanel] = useState<"chat" | "agent" | null>("chat");
   const activeMode = activePanel === "agent" ? "Agent Mode" : activePanel === "chat" ? "Chat Mode" : null;
   const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<Array<{ id: string; role: string; content: string }>>([]);
+  const [history, setHistory] = useState<Array<{ id: string; role: string; content: string }>>(props?.history ?? []);
   const bodyRef = useRef<HTMLDivElement | null>(null);
+
+  console.log("[CHAT DEBUG] Current history:", history);
 
   const show = activePanel === "chat" || activePanel === "agent" || state.loading || !!state.response || !!state.error;
   // Fixed compact square window for both modes
+
+  const handleNewChat = async () => {
+    try {
+      const conversationId = await invoke<string>("start_conversation", { title: "IRA chat" });
+      // Clear history and response for new chat
+      setHistory([]);
+      setState({ loading: false, response: "", error: null, conversation_id: conversationId });
+      // Store the new conversation ID (if this component has access - but it may need to emit to parent)
+    } catch (err) {
+      console.error("Failed to start new conversation", err);
+    }
+  };
 
   const handleClearMode = () => {
     setActivePanel(null);
     setShowHistory(false);
     setState({ loading: false, response: "", error: null });
-    void getCurrentWindow().hide();
+    void getCurrentWindow().close();
     void emit("ira:clear-mode", {});
   };
 
@@ -79,6 +94,9 @@ export default function ResponseWindowUI() {
 
     void listen<ResponsePayload>("ira:response-state", (event) => {
       setState(event.payload);
+      if (event.payload.history) {
+        setHistory(event.payload.history);
+      }
       void getCurrentWindow().show();
     }).then((fn) => {
       unlistenResponse = fn;
@@ -105,10 +123,16 @@ export default function ResponseWindowUI() {
   }, []);
 
   useEffect(() => {
+    if (!activePanel) return;
     setShowHistory(false);
-    setHistory([]);
-    setState({ loading: false, response: "", error: null });
   }, [activePanel]);
+
+  // Dispatch usage-refresh event when response completes successfully
+  useEffect(() => {
+    if (!state.loading && state.response && !state.error) {
+      void emit("usage-refresh");
+    }
+  }, [state.loading, state.response, state.error]);
 
   const loadHistory = async () => {
     if (!state.conversation_id) return;
@@ -214,6 +238,9 @@ export default function ResponseWindowUI() {
         </button>
         <div style={{ color: theme.green, fontSize: 12 }}>{headerText}</div>
         <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" onClick={handleNewChat} style={btn}>
+            + new chat
+          </button>
           <button type="button" onClick={() => setShowHistory((v) => !v)} style={btn}>
             {showHistory ? "hide log" : "log"}
           </button>
@@ -968,7 +995,31 @@ export default function ResponseWindowUI() {
               </div>
             )}
 
-            {state.response && !state.error && (
+            {history.map((msg) => (
+              <div
+                key={msg.id}
+                style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}
+              >
+                <div
+                  style={{
+                    maxWidth: "80%",
+                    background: msg.role === "user" ? "rgba(50, 215, 75, 0.12)" : "rgba(255,255,255,0.04)",
+                    border: msg.role === "user" ? "1px solid rgba(50, 215, 75, 0.24)" : "1px solid rgba(255,255,255,0.10)",
+                    color: msg.role === "user" ? theme.green : theme.textMuted,
+                    borderRadius: 14,
+                    padding: "10px 14px",
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                    whiteSpace: "pre-wrap",
+                    wordWrap: "break-word",
+                  }}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+
+            {history.length === 0 && state.response && !state.error && (
               <div style={{ display: "flex", justifyContent: "flex-start" }}>
                 <div
                   style={{
@@ -1007,70 +1058,7 @@ export default function ResponseWindowUI() {
             )}
           </div>
 
-          <div
-            style={{
-              paddingLeft: 16,
-              paddingRight: 16,
-              paddingTop: 12,
-              paddingBottom: 16,
-              boxSizing: "border-box",
-            }}
-          >
-            <div
-              style={{
-                borderRadius: 16,
-                border: "1px solid rgba(50,215,75,0.15)",
-                background: "rgba(0,0,0,0.8)",
-                padding: "12px 18px",
-                boxShadow: "inset 0 0 0 1px rgba(50,215,75,0.06)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span
-                  style={{
-                    color: theme.green,
-                    fontFamily: theme.fontMono,
-                    fontSize: 14,
-                    lineHeight: 1,
-                    userSelect: "none",
-                  }}
-                >
-                  &gt;
-                </span>
-                <input
-                  type="text"
-                  placeholder="Ask anything..."
-                  style={{
-                    flex: 1,
-                    background: "transparent",
-                    border: "none",
-                    outline: "none",
-                    color: theme.text,
-                    fontFamily: theme.fontMono,
-                    fontSize: 13,
-                  }}
-                />
-                <button
-                  type="button"
-                  style={{
-                    alignSelf: "center",
-                    borderRadius: 999,
-                    border: "1px solid rgba(50,215,75,0.22)",
-                    background: "rgba(18,18,18,0.9)",
-                    color: theme.green,
-                    padding: "6px 12px",
-                    fontSize: 11,
-                    fontFamily: theme.fontMono,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    cursor: "pointer",
-                  }}
-                >
-                  SEND
-                </button>
-              </div>
-            </div>
-          </div>
+
         </div>
       )}
       </div>

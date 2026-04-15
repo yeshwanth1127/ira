@@ -31,6 +31,7 @@ export async function getUsageCounters(licenseId) {
 export async function recordUsage(params) {
     const today = dayStartUTC();
     const month = monthStartUTC();
+    console.log("[USAGE DEBUG] inserting model_id:", params.modelId);
     await dbQuery(`
     INSERT INTO usage_events(license_id, activation_id, user_id, model_id, input_tokens, output_tokens, request_id, meta)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
@@ -47,10 +48,10 @@ export async function recordUsage(params) {
     // day counter (requests)
     await dbQuery(`
     INSERT INTO usage_counters(license_id, period, period_start, model_id, requests, input_tokens, output_tokens, cost_cents)
-    VALUES ($1,'day',$2,NULL,1,0,0,0)
+    VALUES ($1,'day',$2,$3,1,0,0,0)
     ON CONFLICT (license_id, period, period_start, model_id)
     DO UPDATE SET requests = usage_counters.requests + 1
-    `, [params.licenseId, today]);
+    `, [params.licenseId, today, params.modelId]);
     // month counter (tokens, per model)
     await dbQuery(`
     INSERT INTO usage_counters(license_id, period, period_start, model_id, requests, input_tokens, output_tokens, cost_cents)
