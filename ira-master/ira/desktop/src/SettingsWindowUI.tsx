@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { emit, listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { CHILD_PANEL_PADDING } from "./childPanelConstants";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -110,7 +112,7 @@ export default function SettingsWindowUI() {
   const [licenses, setLicenses] = useState<LicenseRow[]>([]);
   const [licenseKeyInput, setLicenseKeyInput] = useState("");
   const [selectedModel, setSelectedModel] = useState<string>(() =>
-    localStorage.getItem("ira_selected_model") ?? "GPT-4o"
+    localStorage.getItem("ira_selected_model") ?? "Free Trial Model"
   );
   const [selectedModelFocused, setSelectedModelFocused] = useState(false);
   const [editingShortcut, setEditingShortcut] = useState<string | null>(null);
@@ -118,6 +120,16 @@ export default function SettingsWindowUI() {
   const [screenshotCaptureEnabled, setScreenshotCaptureEnabled] = useState(true);
   const [autoAnalyzeAfterCapture, setAutoAnalyzeAfterCapture] = useState(true);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"account" | "providers" | "licenses" | "security" | "history" | "shortcuts">("account");
+  const [historyRows, setHistoryRows] = useState<
+    Array<{
+      id: string;
+      title: string | null;
+      created_at: number;
+      updated_at: number;
+      archived_at?: number | null;
+      displayLabel?: string;
+    }>
+  >([]);
   const [providers, setProviders] = useState([
     { name: "OpenAI", enabled: true, apiKey: "", placeholder: "sk-..." },
     { name: "Anthropic", enabled: false, apiKey: "", placeholder: "sk-ant-..." },
@@ -129,6 +141,97 @@ export default function SettingsWindowUI() {
 
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(STORAGE.accessToken));
   const hasToken = !!token;
+
+  // Load history rows (used by both tab open and refresh event)
+  const loadHistoryRows = async () => {
+    try {
+      const rows = await invoke<
+        Array<{
+          id: string;
+          title: string | null;
+          created_at: number;
+          updated_at: number;
+          archived_at?: number | null;
+        }>
+      >("list_conversations", { limit: 50, offset: 0 });
+
+      // Fetch message previews to show first user prompt as label
+      const enhancedRows = await Promise.all(
+        rows.map(async (row) => {
+          try {
+            const messages = await invoke<
+              Array<{ id: string; role: string; content: string }>
+            >("get_conversation_messages", {
+              conversationId: row.id,
+              limit: 500,
+            });
+            // Messages are newest first, so reverse to find first user message
+            const firstUserMsg = messages
+              .reverse()
+              .find((m) => m.role === "user");
+            
+            // Priority: first user message > conversation title > fallback
+            const messageContent = firstUserMsg?.content?.trim();
+            if (messageContent) {
+              return {
+                ...row,
+                displayLabel: messageContent,
+              };
+            }
+            
+            // If no user message found, try title (only if it's meaningful, not the default)
+            if (row.title && row.title !== "IRA chat") {
+              return { ...row, displayLabel: row.title };
+            }
+            
+            // Final fallback to "IRA chat" only if both message and meaningful title are unavailable
+            return { ...row, displayLabel: "IRA chat" };
+          } catch (err) {
+            // Fallback if message fetch fails - try title first, then default
+            console.warn(`Failed to fetch messages for ${row.id}:`, err);
+            if (row.title && row.title !== "IRA chat") {
+              return { ...row, displayLabel: row.title };
+            }
+            return { ...row, displayLabel: "IRA chat" };
+          }
+        })
+      );
+
+      setHistoryRows(enhancedRows);
+    } catch (err) {
+      console.error("Failed to fetch conversations", err);
+    }
+  };
+
+  // Load conversations when history tab is opened
+  useEffect(() => {
+    if (activeSettingsTab !== "history") return;
+    void loadHistoryRows();
+  }, [activeSettingsTab]);
+
+  // Refresh history when new conversations are added
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    void listen("history-refresh", () => {
+      if (activeSettingsTab !== "history") return;
+      void loadHistoryRows();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, [activeSettingsTab]);
+
+  const formatDate = (timestampMs: number) => {
+    const d = new Date(timestampMs);
+    const now = new Date();
+    const dayDiff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    if (dayDiff === 0) {
+      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+    return d.toLocaleDateString([], { month: "short", day: "numeric", year: d.getFullYear() === now.getFullYear() ? undefined : "numeric" });
+  };
 
   const loadData = async (accessToken: string) => {
     const headers = { Authorization: `Bearer ${accessToken}` };
@@ -225,6 +328,36 @@ export default function SettingsWindowUI() {
       }
     })();
   }, [token, licenses]);
+
+  /** Refresh usage data when Account tab is opened */
+  useEffect(() => {
+    if (!token || activeSettingsTab !== "account") return;
+    void loadData(token).catch((e: any) => setError(e?.message ?? "Failed to load settings"));
+  }, [token, activeSettingsTab]);
+
+  /** Refresh usage on chat response completion */
+  useEffect(() => {
+    if (!token) return;
+    const handleUsageRefresh = () => {
+      void loadData(token).catch((e: any) => setError(e?.message ?? "Failed to refresh usage"));
+    };
+    
+    let unlisten: (() => void) | null = null;
+    let isMounted = true;
+    
+    void listen("usage-refresh", handleUsageRefresh).then((fn) => {
+      if (isMounted) {
+        unlisten = fn;
+      } else {
+        fn();
+      }
+    });
+    
+    return () => {
+      isMounted = false;
+      unlisten?.();
+    };
+  }, [token]);
 
   const startResendCooldown = () => {
     setResendCooldown(60);
@@ -904,8 +1037,93 @@ export default function SettingsWindowUI() {
                 </Section>
 
                 <Section title="Usage">
-                  <KV k="Requests today" v={String(usage?.requests_today ?? 0)} />
-                  <KV k="Tokens this month" v={String(usage?.tokens_month ?? 0)} />
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {/* Requests today with limit */}
+                    <div style={{ display: "grid", gridTemplateColumns: "142px 1fr", gap: 8, marginBottom: 4, alignItems: "start" }}>
+                      <div style={{ color: theme.textDim, fontWeight: 600, fontFamily: theme.fontMono, fontSize: 10, lineHeight: 1.28 }}>
+                        Requests today
+                      </div>
+                      <div style={{ color: theme.text, wordBreak: "break-word", fontFamily: theme.fontMono, fontSize: 12, lineHeight: 1.32, fontWeight: 600 }}>
+                        {String(usage?.requests_today ?? 0)} / {String(entitlements?.limits?.requests_per_day ?? "-")}
+                      </div>
+                    </div>
+
+                    {/* Tokens this month with limit */}
+                    <div style={{ display: "grid", gridTemplateColumns: "142px 1fr", gap: 8, marginBottom: 4, alignItems: "start" }}>
+                      <div style={{ color: theme.textDim, fontWeight: 600, fontFamily: theme.fontMono, fontSize: 10, lineHeight: 1.28 }}>
+                        Tokens this month
+                      </div>
+                      <div style={{ color: theme.text, wordBreak: "break-word", fontFamily: theme.fontMono, fontSize: 12, lineHeight: 1.32, fontWeight: 600 }}>
+                        {((usage?.tokens_month ?? 0) as number).toLocaleString()} / {((entitlements?.limits?.tokens_per_month ?? 0) as number).toLocaleString()}
+                      </div>
+                    </div>
+
+                    {/* Remaining tokens */}
+                    <div style={{ display: "grid", gridTemplateColumns: "142px 1fr", gap: 8, marginBottom: 4, alignItems: "start" }}>
+                      <div style={{ color: theme.textDim, fontWeight: 600, fontFamily: theme.fontMono, fontSize: 10, lineHeight: 1.28 }}>
+                        Remaining
+                      </div>
+                      <div style={{ color: theme.green, wordBreak: "break-word", fontFamily: theme.fontMono, fontSize: 12, lineHeight: 1.32, fontWeight: 600 }}>
+                        {Math.max(0, ((entitlements?.limits?.tokens_per_month ?? 0) as number) - ((usage?.tokens_month ?? 0) as number)).toLocaleString()}
+                      </div>
+                    </div>
+
+                    {/* Usage percentage and progress bar */}
+                    {(() => {
+                      const limit = (entitlements?.limits?.tokens_per_month ?? 0) as number;
+                      const used = (usage?.tokens_month ?? 0) as number;
+                      const percentage = limit > 0 ? ((used / limit) * 100) : 0;
+                      const percentageStr = percentage.toFixed(1);
+
+                      return (
+                        <>
+                          {/* Usage percentage row */}
+                          <div style={{ display: "grid", gridTemplateColumns: "142px 1fr", gap: 8, marginBottom: 4, alignItems: "start" }}>
+                            <div style={{ color: theme.textDim, fontWeight: 600, fontFamily: theme.fontMono, fontSize: 10, lineHeight: 1.28 }}>
+                              Usage
+                            </div>
+                            <div style={{ color: theme.text, wordBreak: "break-word", fontFamily: theme.fontMono, fontSize: 12, lineHeight: 1.32, fontWeight: 600 }}>
+                              {percentageStr}%
+                            </div>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div
+                            style={{
+                              width: "100%",
+                              height: 8,
+                              borderRadius: 999,
+                              background: "linear-gradient(180deg, rgba(20,20,20,0.95) 0%, rgba(12,12,12,0.98) 100%)",
+                              border: "1px solid rgba(255,255,255,0.08)",
+                              overflow: "hidden",
+                              marginTop: 4,
+                            }}
+                          >
+                            <div
+                              style={{
+                                height: "100%",
+                                width: `${Math.min(percentage, 100)}%`,
+                                borderRadius: 999,
+                                background:
+                                  percentage < 70
+                                    ? "linear-gradient(90deg, rgba(84,255,123,0.8) 0%, rgba(84,255,123,0.6) 100%)"
+                                    : percentage < 90
+                                      ? "linear-gradient(90deg, rgba(255,200,100,0.8) 0%, rgba(255,180,50,0.6) 100%)"
+                                      : "linear-gradient(90deg, rgba(255,100,100,0.8) 0%, rgba(255,80,80,0.6) 100%)",
+                                transition: "width 300ms ease, background 300ms ease",
+                                boxShadow:
+                                  percentage < 70
+                                    ? "0 0 12px rgba(84,255,123,0.3)"
+                                    : percentage < 90
+                                      ? "0 0 12px rgba(255,180,50,0.3)"
+                                      : "0 0 12px rgba(255,80,80,0.3)",
+                              }}
+                            />
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </Section>
               </div>
             )}
@@ -955,6 +1173,7 @@ export default function SettingsWindowUI() {
                           boxShadow: "inset 0 0 0 1px transparent",
                         }}
                       >
+                        <option value="Free Trial Model">Free Trial Model</option>
                         <option value="GPT-4.1">GPT-4.1</option>
                         <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
                         <option value="GPT-4o">GPT-4o</option>
@@ -1293,12 +1512,7 @@ export default function SettingsWindowUI() {
                       Recent Chats
                     </div>
                     <input className="history-search-input" placeholder="Search conversations" />
-                    {[
-                      { id: "chat-1", title: "Roadmap planning with product team", time: "Apr 6, 2026 • 10:42 AM" },
-                      { id: "chat-2", title: "Fixing desktop window opacity behavior", time: "Apr 6, 2026 • 09:18 AM" },
-                      { id: "chat-3", title: "License activation troubleshooting", time: "Apr 5, 2026 • 07:56 PM" },
-                      { id: "chat-4", title: "Admin API deployment checklist", time: "Apr 4, 2026 • 02:11 PM" },
-                    ].map((chat) => (
+                    {historyRows.map((chat) => (
                       <div
                         key={chat.id}
                         style={{
@@ -1325,9 +1539,12 @@ export default function SettingsWindowUI() {
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                             }}
-                            title={chat.title}
+                            title={chat.displayLabel ?? chat.title ?? "Untitled Chat"}
                           >
-                            {chat.title}
+                            {(() => {
+                              const label = chat.displayLabel ?? chat.title ?? "Untitled Chat";
+                              return label.length > 80 ? label.slice(0, 80) + "..." : label;
+                            })()}
                           </div>
                           <div
                             style={{
@@ -1337,13 +1554,13 @@ export default function SettingsWindowUI() {
                               letterSpacing: "0.02em",
                             }}
                           >
-                            {chat.time}
+                            {formatDate(chat.updated_at)}
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => {}}
-                          aria-label={`Delete ${chat.title}`}
+                          aria-label={`Delete ${chat.displayLabel ?? chat.title}`}
                           title="Delete chat"
                           style={{
                             width: 30,
@@ -1389,9 +1606,11 @@ export default function SettingsWindowUI() {
                         Clear All History
                       </button>
                     </div>
-                    <div style={{ color: theme.textDim, fontFamily: theme.fontMono, fontSize: 10, lineHeight: 1.35 }}>
-                      Mock data only. History storage integration will be added later.
-                    </div>
+                    {historyRows.length === 0 && (
+                      <div style={{ color: theme.textDim, fontFamily: theme.fontMono, fontSize: 10, lineHeight: 1.35 }}>
+                        No conversations yet.
+                      </div>
+                    )}
                   </div>
                 </Section>
               </div>

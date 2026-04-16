@@ -2,7 +2,7 @@
 import React, { useEffect, useLayoutEffect, useRef } from "react";
 import TopBar from "./components/TopBar";
 import IconGroup from "./components/IconGroup";
-import { emitTo, listen, TauriEvent } from "@tauri-apps/api/event";
+import { emitTo, listen, TauriEvent, emit } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { currentMonitor, getCurrentWindow, LogicalPosition, LogicalSize, Window } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -13,6 +13,7 @@ export default function ExactIraUI() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [activeMode, setActiveMode] = React.useState<"Chat Mode" | "Agent Mode" | null>(null);
+  const [history, setHistory] = React.useState<Array<{ id: string; role: string; content: string }>>([]);
   const activePanel = activeMode === "Chat Mode" ? "chat" : activeMode === "Agent Mode" ? "agent" : null;
 
   const TOPBAR_HEIGHT = 70;
@@ -31,6 +32,7 @@ export default function ExactIraUI() {
 
   // Map frontend display model names to backend model IDs
   const DISPLAY_MODEL_MAP: Record<string, string> = {
+    "Free Trial Model": "openrouter/free",
     "GPT-4.1": "openai/gpt-4-turbo",
     "GPT-4o": "openai/gpt-4o",
     "Claude 3.7 Sonnet": "anthropic/claude-3-7-sonnet",
@@ -66,7 +68,17 @@ export default function ExactIraUI() {
     if (!resp) return;
 
     const anchor = await mainBarAnchorLogical(main);
-    await resp.setPosition(new LogicalPosition(anchor.left, anchor.bottom));
+    const mainSize = await main.innerSize();
+    const sf = await main.scaleFactor();
+    const mainHeightLogical = mainSize.toLogical(sf).height;
+    
+    // Position below the top bar with padding
+    const y = anchor.bottom + 12;
+    // Use remaining vertical space minus padding
+    const height = mainHeightLogical - (TOPBAR_HEIGHT + 24);
+    
+    await resp.setPosition(new LogicalPosition(anchor.left, y));
+    await resp.setSize(new LogicalSize(anchor.width, Math.max(200, height)));
   };
 
   const positionSettingsWindow = async () => {
@@ -156,7 +168,6 @@ export default function ExactIraUI() {
   };
 
   const ensureResponseWindow = async () => {
-    await closeOpenChildPanels();
     await new Promise((resolve) => setTimeout(resolve, 150));
     const existing = await WebviewWindow.getByLabel("response");
     if (existing) {
@@ -173,7 +184,7 @@ export default function ExactIraUI() {
       // Opaque webview so the pink panel can align 1:1 with the window (no transparent halo).
       transparent: false,
       backgroundColor: theme.windowBg,
-      alwaysOnTop: true,
+      alwaysOnTop: false,
       resizable: false,
       visible: false,
       focus: false,
@@ -374,14 +385,10 @@ export default function ExactIraUI() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch AI response from backend
-  const sendMessage = async () => {
-    if (!input.trim()) return;
-    setLoading(true);
-    setError(null);
+  // Open response window without sending a message
+  const openResponseWindow = async () => {
     await hideSettingsIfVisible();
     await closeOpenChildPanels();
-    await new Promise((resolve) => setTimeout(resolve, 150));
     await ensureResponseWindow();
     await positionResponseWindow();
     // Wait until the response window has loaded and registered its listener.
@@ -389,15 +396,34 @@ export default function ExactIraUI() {
     await emitActiveModeToResponse();
     const respWindow = await Window.getByLabel("response");
     await respWindow?.show();
-    await emitTo("response", "ira:response-state", { loading: true, response: "", error: null, conversation_id: null });
+    await emitTo("response", "ira:response-state", { loading: false, response: "", error: null, conversation_id: localStorage.getItem(STORAGE.conversationId) ?? null, history });
+  };
+
+  // Fetch AI response from backend
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+    console.log("[CHAT DEBUG] Sending input:", input);
+    setLoading(true);
+    setError(null);
+    await hideSettingsIfVisible();
+    await closeOpenChildPanels();
+    await ensureResponseWindow();
+    await positionResponseWindow();
+    // Wait until the response window has loaded and registered its listener.
+    await waitForResponseReady();
+    await emitActiveModeToResponse();
+    const respWindow = await Window.getByLabel("response");
+    await respWindow?.show();
+    await emitTo("response", "ira:response-state", { loading: true, response: "", error: null, conversation_id: null, history });
     try {
       // Get selected model from localStorage and map to backend model ID
-      const displayModel = localStorage.getItem("ira_selected_model") ?? "GPT-4o";
-      const selectedBackendModel = DISPLAY_MODEL_MAP[displayModel as keyof typeof DISPLAY_MODEL_MAP] ?? "openai/gpt-4o-mini";
+      const displayModel = localStorage.getItem("ira_selected_model") ?? "Free Trial Model";
+      const selectedBackendModel = DISPLAY_MODEL_MAP[displayModel as keyof typeof DISPLAY_MODEL_MAP] ?? "openrouter/free";
 
       let conversationId = localStorage.getItem(STORAGE.conversationId);
       if (!conversationId) {
-        conversationId = await invoke<string>("start_conversation", { title: "IRA chat" });
+        const conversationTitle = input.trim().slice(0, 50);
+        conversationId = await invoke<string>("start_conversation", { title: conversationTitle });
         localStorage.setItem(STORAGE.conversationId, conversationId);
       }
 
@@ -409,6 +435,15 @@ export default function ExactIraUI() {
         parentMessageId: null,
         metadata: { source: "topbar" },
       });
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: input,
+        },
+      ]);
+      console.log("[CHAT DEBUG] User message appended");
 
       const messages = await invoke<Array<{ role: string; content: string }>>("build_context", {
         conversationId,
@@ -434,6 +469,7 @@ export default function ExactIraUI() {
       });
       if (!res.ok) throw new Error("Failed to fetch AI response");
       const data = await res.json();
+      console.log("[CHAT DEBUG] Assistant response:", data.reply);
 
       const assistantMessageId = await invoke<string>("append_message", {
         conversationId,
@@ -443,6 +479,16 @@ export default function ExactIraUI() {
         parentMessageId: null,
         metadata: { model: data.model ?? null, usage: data.usage ?? null },
       });
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: assistantMessageId,
+          role: "assistant",
+          content: data.reply ?? "",
+        },
+      ]);
+      console.log("[CHAT DEBUG] Assistant message appended");
+      await emit("history-refresh");
       await invoke("log_llm_call_finish", {
         payload: {
           llm_call_id: llmCallId,
@@ -454,7 +500,20 @@ export default function ExactIraUI() {
       });
 
       setLoading(false);
-      await emitTo("response", "ira:response-state", { loading: false, response: data.reply ?? "", error: null, conversation_id: conversationId });
+      const updatedHistory = [
+        ...history,
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: input,
+        },
+        {
+          id: assistantMessageId,
+          role: "assistant",
+          content: data.reply ?? "",
+        },
+      ];
+      await emitTo("response", "ira:response-state", { loading: false, response: data.reply ?? "", error: null, conversation_id: conversationId, history: updatedHistory });
     } catch (err) {
       setError("Failed to get AI response");
       setLoading(false);
@@ -478,6 +537,7 @@ export default function ExactIraUI() {
         response: "",
         error: "Failed to get AI response",
         conversation_id: conversationId,
+        history,
       });
     }
     setInput("");
@@ -534,6 +594,7 @@ export default function ExactIraUI() {
         input={input}
         onInputChange={e => setInput(e.target.value)}
         onSend={sendMessage}
+        onInputFocus={openResponseWindow}
         disabled={loading}
         icons={<IconGroup onOpenSettings={openSettings} />}
         onSwitchMode={handleSwitchMode}
